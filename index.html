@@ -8,30 +8,128 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="players-card">
-            <div class="players-header">
-                <div class="players-icon">
-                    <i class="fas fa-users"></i>
+    <!-- Header -->
+    <header class="site-header">
+        <div class="container header-content">
+            <div class="site-title">
+                <div class="site-logo">
+                    <i class="fas fa-cube"></i>
                 </div>
-                <h2 class="players-title">Joueurs connectés</h2>
+                <h1 class="site-name">BTSSIO Craft</h1>
             </div>
             
-            <ul class="player-list" id="player-list">
-                <!-- Contenu généré par JavaScript -->
-                <li class="player-item loading">
-                    <div class="player-avatar">
-                        <i class="fas fa-spinner fa-spin"></i>
+            <div class="server-address" id="copy-address">
+                <span class="address-text">btssio.craft.gg</span>
+                <span class="copy-icon"><i class="fas fa-copy"></i></span>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <div class="container">
+        <div class="main-content">
+            <!-- Server Status Card -->
+            <div class="mc-card">
+                <div class="mc-card-header">
+                    <div class="mc-card-icon">
+                        <i class="fas fa-server"></i>
                     </div>
-                    <div class="player-info">
-                        <div class="player-name">Chargement...</div>
-                        <div class="player-status">Récupération des joueurs en ligne</div>
+                    <h2 class="mc-card-title">Statut du serveur</h2>
+                    <div class="mc-card-refresh" id="refresh-status">
+                        <i class="fas fa-sync-alt"></i>
                     </div>
-                </li>
-            </ul>
+                </div>
+                
+                <div class="mc-card-content">
+                    <ul class="status-list" id="server-status">
+                        <li class="status-item">
+                            <div class="status-label">
+                                <i class="fas fa-circle"></i> Statut
+                            </div>
+                            <div class="status-value">
+                                <i class="fas fa-spinner fa-spin"></i> Chargement...
+                            </div>
+                        </li>
+                        <li class="status-item">
+                            <div class="status-label">
+                                <i class="fas fa-microchip"></i> CPU
+                            </div>
+                            <div class="status-value">
+                                <i class="fas fa-spinner fa-spin"></i> Chargement...
+                            </div>
+                        </li>
+                        <li class="status-item">
+                            <div class="status-label">
+                                <i class="fas fa-memory"></i> RAM
+                            </div>
+                            <div class="status-value">
+                                <i class="fas fa-spinner fa-spin"></i> Chargement...
+                            </div>
+                        </li>
+                        <li class="status-item">
+                            <div class="status-label">
+                                <i class="fas fa-users"></i> Joueurs
+                            </div>
+                            <div class="status-value">
+                                <i class="fas fa-spinner fa-spin"></i> Chargement...
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Players Card -->
+            <div class="mc-card">
+                <div class="mc-card-header">
+                    <div class="mc-card-icon">
+                        <i class="fas fa-user-friends"></i>
+                    </div>
+                    <h2 class="mc-card-title">Joueurs connectés</h2>
+                    <div class="mc-card-refresh" id="refresh-players">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                </div>
+                
+                <div class="mc-card-content">
+                    <ul class="player-list" id="player-list">
+                        <li class="player-item loading">
+                            <div class="player-avatar">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </div>
+                            <div class="player-info">
+                                <div class="player-name">Chargement...</div>
+                                <div class="player-status">Récupération des joueurs</div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mode Demo Toggle -->
+        <div class="demo-toggle">
+            <label class="mc-toggle">
+                <input type="checkbox" id="demo-mode">
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Mode démonstration</span>
+            </label>
+            <p class="demo-info">Activer si les APIs ne fonctionnent pas</p>
         </div>
     </div>
-
+    
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <p>© 2025 BTSSIO Craft - Serveur Minecraft vanilla 1.21.5 entre amis</p>
+        </div>
+    </footer>
+    
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span class="toast-icon"><i class="fas fa-check-circle"></i></span>
+        <span class="toast-message">Adresse du serveur copiée !</span>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
