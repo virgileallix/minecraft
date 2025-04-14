@@ -1,0 +1,189 @@
+/* Styles généraux */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --primary: #00E676;
+    --primary-dark: #00C853;
+    --primary-light: #69F0AE;
+    --primary-glow: rgba(0, 230, 118, 0.5);
+    --dark: #0A0A0A;
+    --darker: #050505;
+    --light: #FFFFFF;
+    --medium: #303030;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-color: var(--dark);
+    color: var(--light);
+    line-height: 1.6;
+}
+
+.container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Style de la carte des joueurs */
+.players-card {
+    background: rgba(30, 30, 30, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.players-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(90deg, var(--primary), transparent);
+    border-radius: 16px 16px 0 0;
+}
+
+.players-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.players-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+    background: rgba(0, 230, 118, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--primary);
+    box-shadow: 0 0 20px rgba(0, 230, 118, 0.1);
+}
+
+.players-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--light);
+}
+
+.player-list {
+    list-style: none;
+}
+
+.player-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.player-item:last-child {
+    border-bottom: none;
+}
+
+.player-item:hover {
+    transform: translateX(5px);
+}
+
+.player-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 22px;
+    background: rgba(0, 230, 118, 0.1);
+    color: var(--primary);
+    transition: all 0.3s ease;
+}
+
+.player-item:hover .player-avatar {
+    background: var(--primary);
+    color: var(--dark);
+    transform: rotateY(180deg);
+}
+
+.player-info {
+    flex: 1;
+}
+
+.player-name {
+    font-weight: 500;
+    font-size: 18px;
+    color: var(--light);
+}
+
+.player-status {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Style pour "Aucun joueur connecté" */
+.no-players .player-avatar {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.no-players:hover .player-avatar {
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.no-players .player-name {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Ajout d'un peu d'animation au survol pour la fluidité */
+@keyframes glow {
+    0% {
+        box-shadow: 0 0 5px rgba(0, 230, 118, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(0, 230, 118, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 5px rgba(0, 230, 118, 0.3);
+    }
+}
+
+.players-card:hover .players-icon {
+    animation: glow 2s infinite;
+}
+
+/* Effet responsive */
+@media (max-width: 768px) {
+    .players-card {
+        padding: 20px;
+    }
+    
+    .players-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .players-icon {
+        margin: 0 auto;
+    }
+}
