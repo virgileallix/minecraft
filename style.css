@@ -154,6 +154,26 @@ body {
     color: rgba(255, 255, 255, 0.8);
 }
 
+/* Style pour l'état de chargement */
+.loading .player-avatar {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--primary);
+}
+
+.loading .player-name {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Style pour l'état d'erreur */
+.error-state .player-avatar {
+    background: rgba(255, 82, 82, 0.1);
+    color: #FF5252;
+}
+
+.error-state .player-name {
+    color: #FF5252;
+}
+
 /* Ajout d'un peu d'animation au survol pour la fluidité */
 @keyframes glow {
     0% {
@@ -169,6 +189,30 @@ body {
 
 .players-card:hover .players-icon {
     animation: glow 2s infinite;
+}
+
+/* Animation de rafraîchissement */
+@keyframes refresh-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.refresh-icon {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.refresh-icon:hover {
+    color: var(--primary);
+}
+
+.refresh-icon.spinning {
+    animation: refresh-spin 1s linear infinite;
+    color: var(--primary);
 }
 
 /* Effet responsive */
