@@ -9,7 +9,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const refreshTimerEl = document.getElementById('refresh-timer');
     const refreshTimerStatusEl = document.getElementById('refresh-timer-status');
     const onlineCountEl = document.getElementById('online-count');
-    const serverActivityChart = document.getElementById('server-activity-chart');
+    
+    // Éléments DOM pour les joueurs Minecraft
+    const refreshPlayerTimerEl = document.getElementById('refresh-player-timer');
+    const refreshPlayerTimerStatusEl = document.getElementById('refresh-player-timer-status');
+    const refreshPlayerProgressEl = document.getElementById('refresh-player-progress');
+    
+    // Éléments DOM pour les utilisateurs du site
+    const onlineUsersList = document.getElementById('online-users-list');
+    const refreshOnlineUsers = document.getElementById('refresh-online-users');
+    const refreshUsersTimerEl = document.getElementById('refresh-users-timer');
+    const refreshUsersTimerStatusEl = document.getElementById('refresh-users-timer-status');
+    const refreshUsersProgressEl = document.getElementById('refresh-users-progress');
+    
+    // Éléments DOM pour l'authentification et le chat
+    const loginButton = document.getElementById('login-button');
+    const userProfile = document.getElementById('user-profile');
+    const loginModal = document.getElementById('login-modal');
+    const closeModal = document.getElementById('close-modal');
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const usernameDisplay = document.getElementById('username-display');
+    const userAvatar = document.getElementById('user-avatar');
+    const logoutButton = document.getElementById('logout-button');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInputField = document.getElementById('chat-input-field');
+    const sendButton = document.getElementById('send-button');
     
     // URLs des APIs
     const playersApiUrl = 'https://panel.omgserv.com/json/447820/players';
@@ -18,15 +45,262 @@ document.addEventListener('DOMContentLoaded', function() {
     // Intervalle de rafraîchissement (10 secondes)
     const refreshInterval = 10000;
     let lastRefreshTime = Date.now();
+    let lastPlayersRefreshTime = Date.now();
+    let lastUsersRefreshTime = Date.now();
     let refreshTimer;
+    let playersRefreshTimer;
+    let usersRefreshTimer;
     
-    // Historique des données pour les graphiques
-    const activityHistory = {
-        times: [],
-        players: [],
-        cpu: [],
-        ram: []
-    };
+    // État de l'utilisateur
+    let currentUser = null;
+    
+    // Base de données simulée pour les utilisateurs (localStorage)
+    function getUsers() {
+        const users = localStorage.getItem('btssio_craft_users');
+        return users ? JSON.parse(users) : [];
+    }
+    
+    function saveUsers(users) {
+        localStorage.setItem('btssio_craft_users', JSON.stringify(users));
+    }
+    
+    // Gestion des utilisateurs connectés
+    function getOnlineUsers() {
+        const onlineUsers = localStorage.getItem('btssio_craft_online_users');
+        return onlineUsers ? JSON.parse(onlineUsers) : [];
+    }
+    
+    function saveOnlineUsers(users) {
+        localStorage.setItem('btssio_craft_online_users', JSON.stringify(users));
+    }
+    
+    function updateUserLastActivity(userId) {
+        const onlineUsers = getOnlineUsers();
+        const userIndex = onlineUsers.findIndex(u => u.id === userId);
+        
+        if (userIndex !== -1) {
+            onlineUsers[userIndex].lastActivity = Date.now();
+            saveOnlineUsers(onlineUsers);
+        } else if (currentUser) {
+            // Ajouter l'utilisateur à la liste des utilisateurs en ligne
+            onlineUsers.push({
+                id: currentUser.id,
+                username: currentUser.username,
+                lastActivity: Date.now()
+            });
+            saveOnlineUsers(onlineUsers);
+        }
+    }
+    
+    // Mettre à jour la liste des utilisateurs en ligne
+    function updateOnlineUsersList() {
+        if (!onlineUsersList) return;
+        
+        const onlineUsers = getOnlineUsers();
+        
+        // Supprimer les utilisateurs inactifs depuis plus de 5 minutes
+        const now = Date.now();
+        const activeUsers = onlineUsers.filter(user => {
+            return (now - user.lastActivity) < 5 * 60 * 1000; // 5 minutes
+        });
+        
+        if (activeUsers.length !== onlineUsers.length) {
+            saveOnlineUsers(activeUsers);
+        }
+        
+        // Mettre à jour l'interface
+        onlineUsersList.innerHTML = '';
+        
+        if (activeUsers.length === 0) {
+            onlineUsersList.innerHTML = `
+                <li class="user-item">
+                    <div class="user-avatar">
+                        <i class="fas fa-user-slash"></i>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">Aucun utilisateur en ligne</div>
+                        <div class="user-status">Soyez le premier à vous connecter !</div>
+                    </div>
+                </li>
+            `;
+        } else {
+            activeUsers.forEach(user => {
+                const isCurrentUser = currentUser && user.id === currentUser.id;
+                const userItem = document.createElement('li');
+                userItem.className = 'user-item';
+                
+                const lastActivity = new Date(user.lastActivity);
+                const timeAgo = getTimeAgo(lastActivity);
+                
+                userItem.innerHTML = `
+                    <div class="user-avatar">
+                        <img src="${getPlayerAvatarUrl(user.username)}" alt="${user.username}">
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">${user.username} ${isCurrentUser ? '(Vous)' : ''}</div>
+                        <div class="user-status ${timeAgo.status}">${timeAgo.text}</div>
+                    </div>
+                    ${isCurrentUser ? '' : `
+                    <div class="user-actions">
+                        <button class="user-action-button chat-with" data-username="${user.username}">
+                            <i class="fas fa-comment"></i>
+                        </button>
+                    </div>
+                    `}
+                `;
+                
+                onlineUsersList.appendChild(userItem);
+            });
+            
+            // Ajouter des écouteurs d'événements aux boutons de chat
+            const chatWithButtons = onlineUsersList.querySelectorAll('.chat-with');
+            chatWithButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const username = this.dataset.username;
+                    if (currentUser) {
+                        // Envoyer un message privé
+                        const messageInput = document.getElementById('chat-input-field');
+                        if (messageInput) {
+                            messageInput.value = `@${username} `;
+                            messageInput.focus();
+                        }
+                    }
+                });
+            });
+        }
+    }
+    
+    // Fonction pour obtenir le temps écoulé depuis une date
+    function getTimeAgo(date) {
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        
+        if (diffMin < 1) {
+            return { text: 'En ligne maintenant', status: 'online' };
+        } else if (diffMin < 5) {
+            return { text: `En ligne il y a ${diffMin} minute${diffMin > 1 ? 's' : ''}`, status: 'online' };
+        } else {
+            return { text: `Inactif depuis ${diffMin} minutes`, status: 'idle' };
+        }
+    }
+    
+    // Vérifier si l'utilisateur est déjà connecté
+    function checkLoggedInUser() {
+        const loggedUser = localStorage.getItem('btssio_craft_current_user');
+        if (loggedUser) {
+            currentUser = JSON.parse(loggedUser);
+            updateAuthUI();
+            enableChat();
+            updateUserLastActivity(currentUser.id);
+        }
+    }
+    
+    // Mettre à jour l'interface utilisateur d'authentification
+    function updateAuthUI() {
+        if (currentUser) {
+            loginButton.style.display = 'none';
+            userProfile.style.display = 'flex';
+            usernameDisplay.textContent = currentUser.username;
+            userAvatar.src = getPlayerAvatarUrl(currentUser.username);
+        } else {
+            loginButton.style.display = 'flex';
+            userProfile.style.display = 'none';
+        }
+    }
+    
+    // Activer le chat pour les utilisateurs connectés
+    function enableChat() {
+        if (currentUser) {
+            chatInputField.disabled = false;
+            sendButton.disabled = false;
+            chatInputField.placeholder = "Tapez votre message...";
+            
+            // Ajouter un message de bienvenue
+            addChatMessage({
+                sender: 'server',
+                message: `Bienvenue, ${currentUser.username} ! Vous pouvez maintenant participer au chat.`
+            });
+        } else {
+            chatInputField.disabled = true;
+            sendButton.disabled = true;
+            chatInputField.placeholder = "Connectez-vous pour envoyer un message...";
+        }
+    }
+    
+    // Ajouter un message au chat
+    function addChatMessage(messageData) {
+        if (!chatMessages) return;
+        
+        const messageElem = document.createElement('div');
+        messageElem.className = `chat-message ${messageData.sender === 'server' ? 'server' : 'user'}`;
+        
+        if (messageData.sender === 'server') {
+            messageElem.innerHTML = `<strong>Serveur:</strong> ${messageData.message}`;
+        } else {
+            messageElem.innerHTML = `<strong>${messageData.sender}:</strong> ${messageData.message}`;
+        }
+        
+        chatMessages.appendChild(messageElem);
+        
+        // Faire défiler jusqu'au dernier message
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Gérer l'envoi de messages
+    function handleSendMessage() {
+        if (!currentUser || !chatInputField.value.trim()) return;
+        
+        const message = chatInputField.value.trim();
+        
+        // Ajouter le message au chat
+        addChatMessage({
+            sender: currentUser.username,
+            message: message
+        });
+        
+        // Mettre à jour l'activité de l'utilisateur
+        updateUserLastActivity(currentUser.id);
+        
+        // Vérifier si c'est un message privé
+        if (message.startsWith('@')) {
+            const recipientUsername = message.split(' ')[0].substring(1);
+            const onlineUsers = getOnlineUsers();
+            const recipient = onlineUsers.find(u => u.username.toLowerCase() === recipientUsername.toLowerCase());
+            
+            if (recipient) {
+                // Simuler une réponse privée
+                setTimeout(() => {
+                    addChatMessage({
+                        sender: recipientUsername,
+                        message: `@${currentUser.username} Salut ! J'ai bien reçu ton message privé.`
+                    });
+                }, 1000 + Math.random() * 2000);
+            }
+        } else {
+            // Simuler une réponse du serveur (pour démo)
+            setTimeout(() => {
+                const responses = [
+                    "Merci pour ton message !",
+                    "N'oublie pas de rejoindre notre serveur Discord !",
+                    "Tu peux aussi nous suivre sur les réseaux sociaux.",
+                    "As-tu besoin d'aide pour quelque chose ?",
+                    "N'hésite pas à poser des questions si tu as besoin d'aide."
+                ];
+                
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                
+                addChatMessage({
+                    sender: 'server',
+                    message: randomResponse
+                });
+            }, 1000 + Math.random() * 2000);
+        }
+        
+        // Effacer le champ de saisie
+        chatInputField.value = '';
+    }
     
     // Fonctions de récupération des données
     async function fetchData(url) {
@@ -158,19 +432,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     </li>
                 `;
             } else {
-                // Ajouter les joueurs à l'historique
-                activityHistory.times.push(new Date().toLocaleTimeString());
-                activityHistory.players.push(data.players.length);
-                
-                // Limiter l'historique à 20 points
-                if (activityHistory.times.length > 20) {
-                    activityHistory.times.shift();
-                    activityHistory.players.shift();
-                }
-                
-                // Mettre à jour le graphique
-                updateActivityChart();
-                
                 // Afficher chaque joueur
                 data.players.forEach(player => {
                     // Créer l'élément pour le joueur
@@ -226,16 +487,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const status = data.status;
                 const isOnline = status.online;
                 
-                // Ajouter à l'historique
-                activityHistory.cpu.push(status.cpu);
-                activityHistory.ram.push(Math.round(status.ram / 1024));
-                
-                // Limiter l'historique
-                if (activityHistory.cpu.length > 20) {
-                    activityHistory.cpu.shift();
-                    activityHistory.ram.shift();
-                }
-                
                 // Statut en ligne/hors ligne
                 const statusValue = serverStatus.querySelector('.status-item:nth-child(1) .status-value');
                 if (statusValue) {
@@ -274,9 +525,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (onlineCountEl) {
                     onlineCountEl.textContent = isOnline ? status.players.online : 0;
                 }
-                
-                // Mettre à jour le graphique
-                updateActivityChart();
             } else {
                 throw new Error('Format de données invalide');
             }
@@ -293,61 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Fonction pour mettre à jour le graphique d'activité
-    function updateActivityChart() {
-        if (!serverActivityChart || activityHistory.times.length < 2) return;
-        
-        // Mettre à jour le graphique avec Chart.js si disponible
-        if (window.Chart && serverActivityChart.getContext) {
-            if (!window.serverChart) {
-                // Créer le graphique pour la première fois
-                window.serverChart = new Chart(serverActivityChart.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: activityHistory.times,
-                        datasets: [
-                            {
-                                label: 'Joueurs',
-                                data: activityHistory.players,
-                                borderColor: 'rgb(82, 165, 53)',
-                                backgroundColor: 'rgba(82, 165, 53, 0.1)',
-                                tension: 0.3,
-                                fill: true
-                            },
-                            {
-                                label: 'CPU %',
-                                data: activityHistory.cpu,
-                                borderColor: 'rgb(91, 141, 217)',
-                                backgroundColor: 'rgba(91, 141, 217, 0.1)',
-                                tension: 0.3,
-                                fill: true
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        },
-                        animation: {
-                            duration: 500
-                        }
-                    }
-                });
-            } else {
-                // Mettre à jour le graphique existant
-                window.serverChart.data.labels = activityHistory.times;
-                window.serverChart.data.datasets[0].data = activityHistory.players;
-                window.serverChart.data.datasets[1].data = activityHistory.cpu;
-                window.serverChart.update();
-            }
-        }
-    }
-    
-    // Fonction pour mettre à jour le timer de rafraîchissement
+    // Fonction pour mettre à jour le timer de rafraîchissement du statut
     function updateRefreshTimer() {
         if (!refreshTimerEl || !refreshTimerStatusEl) return;
         
@@ -369,9 +563,60 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Si le temps est écoulé, rafraîchir les données
         if (timeElapsed >= refreshInterval) {
-            loadPlayers();
             loadServerStatus();
             lastRefreshTime = now;
+        }
+    }
+    
+    // Fonction pour mettre à jour le timer de rafraîchissement des joueurs
+    function updatePlayersRefreshTimer() {
+        if (!refreshPlayerTimerEl || !refreshPlayerTimerStatusEl) return;
+        
+        const now = Date.now();
+        const timeElapsed = now - lastPlayersRefreshTime;
+        const timeRemaining = Math.max(0, refreshInterval - timeElapsed);
+        const secondsRemaining = Math.ceil(timeRemaining / 1000);
+        
+        // Mettre à jour l'affichage du timer
+        refreshPlayerTimerEl.textContent = secondsRemaining;
+        refreshPlayerTimerStatusEl.textContent = secondsRemaining;
+        
+        // Mettre à jour la barre de progression
+        if (refreshPlayerProgressEl) {
+            const percentage = (timeElapsed / refreshInterval) * 100;
+            refreshPlayerProgressEl.style.width = `${percentage}%`;
+        }
+        
+        // Si le temps est écoulé, rafraîchir les données
+        if (timeElapsed >= refreshInterval) {
+            loadPlayers();
+            lastPlayersRefreshTime = now;
+        }
+    }
+    
+    // Fonction pour mettre à jour le timer de rafraîchissement des utilisateurs
+    function updateUsersRefreshTimer() {
+        if (!refreshUsersTimerEl || !refreshUsersTimerStatusEl) return;
+        
+        const now = Date.now();
+        const timeElapsed = now - lastUsersRefreshTime;
+        const timeRemaining = Math.max(0, refreshInterval - timeElapsed);
+        const secondsRemaining = Math.ceil(timeRemaining / 1000);
+        
+        // Mettre à jour l'affichage du timer
+        refreshUsersTimerEl.textContent = secondsRemaining;
+        refreshUsersTimerStatusEl.textContent = secondsRemaining;
+        
+        // Mettre à jour la barre de progression
+        if (refreshUsersProgressEl) {
+            const percentage = (timeElapsed / refreshInterval) * 100;
+            refreshUsersProgressEl.style.width = `${percentage}%`;
+        }
+        
+        // Si le temps est écoulé, rafraîchir les données
+        if (timeElapsed >= refreshInterval) {
+            updateOnlineUsersList();
+            lastUsersRefreshTime = now;
         }
     }
     
@@ -423,7 +668,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (icon) icon.classList.add('spinning');
             
             loadPlayers();
-            lastRefreshTime = Date.now();
+            lastPlayersRefreshTime = Date.now();
             
             // Retirer la classe spinning après 1 seconde
             setTimeout(() => {
@@ -454,6 +699,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Événement de clic sur le bouton de rafraîchissement des utilisateurs en ligne
+    if (refreshOnlineUsers) {
+        refreshOnlineUsers.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (icon) icon.classList.add('spinning');
+            
+            updateOnlineUsersList();
+            lastUsersRefreshTime = Date.now();
+            
+            // Retirer la classe spinning après 1 seconde
+            setTimeout(() => {
+                if (icon) icon.classList.remove('spinning');
+            }, 1000);
+        });
+    }
+    
     // Mettre en place l'animation de "battement de cœur" du serveur
     function setupHeartbeat() {
         const serverHeartbeat = document.getElementById('server-heartbeat');
@@ -467,35 +728,293 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Événements pour le système d'authentification
+    if (loginButton) {
+        loginButton.addEventListener('click', function() {
+            if (loginModal) {
+                loginModal.classList.add('active');
+            }
+        });
+    }
+    
+    if (closeModal) {
+        closeModal.addEventListener('click', function() {
+            if (loginModal) {
+                loginModal.classList.remove('active');
+            }
+        });
+    }
+    
+    // Fermer le modal en cliquant en dehors
+    window.addEventListener('click', function(event) {
+        if (event.target === loginModal) {
+            loginModal.classList.remove('active');
+        }
+    });
+    
+    // Gestion des onglets
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const tabName = this.dataset.tab;
+            
+            // Activer l'onglet sélectionné
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Afficher le contenu de l'onglet sélectionné
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === `${tabName}-tab`) {
+                    content.classList.add('active');
+                }
+            });
+        });
+    });
+    
+    // Gestion du formulaire de connexion
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            
+            if (!username || !password) {
+                showToast('Veuillez remplir tous les champs', 'exclamation-circle', false);
+                return;
+            }
+            
+            // Vérifier les identifiants
+            const users = getUsers();
+            const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+            
+            if (!user || user.password !== password) {
+                showToast('Identifiants incorrects', 'exclamation-circle', false);
+                return;
+            }
+            
+            // Connexion réussie
+            currentUser = { username: user.username, id: user.id };
+            localStorage.setItem('btssio_craft_current_user', JSON.stringify(currentUser));
+            
+            // Mettre à jour l'interface
+            updateAuthUI();
+            enableChat();
+            
+            // Mettre à jour la liste des utilisateurs en ligne
+            updateUserLastActivity(user.id);
+            updateOnlineUsersList();
+            
+            // Fermer le modal
+            loginModal.classList.remove('active');
+            
+            // Notifier l'utilisateur
+            showToast(`Bienvenue, ${currentUser.username} !`);
+            
+            // Réinitialiser le formulaire
+            loginForm.reset();
+        });
+    }
+    
+    // Gestion du formulaire d'inscription
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value.trim();
+            const confirmPassword = document.getElementById('register-confirm').value.trim();
+            
+            if (!username || !password || !confirmPassword) {
+                showToast('Veuillez remplir tous les champs', 'exclamation-circle', false);
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showToast('Les mots de passe ne correspondent pas', 'exclamation-circle', false);
+                return;
+            }
+            
+            // Vérifier si l'utilisateur existe déjà
+            const users = getUsers();
+            if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+                showToast('Ce nom d\'utilisateur est déjà pris', 'exclamation-circle', false);
+                return;
+            }
+            
+            // Créer un nouvel utilisateur
+            const newUser = {
+                id: Date.now().toString(),
+                username: username,
+                password: password
+            };
+            
+            // Ajouter l'utilisateur à la base de données
+            users.push(newUser);
+            saveUsers(users);
+            
+            // Connecter l'utilisateur
+            currentUser = { username: newUser.username, id: newUser.id };
+            localStorage.setItem('btssio_craft_current_user', JSON.stringify(currentUser));
+            
+            // Mettre à jour l'interface
+            updateAuthUI();
+            enableChat();
+            
+            // Mettre à jour la liste des utilisateurs en ligne
+            updateUserLastActivity(newUser.id);
+            updateOnlineUsersList();
+            
+            // Fermer le modal
+            loginModal.classList.remove('active');
+            
+            // Notifier l'utilisateur
+            showToast(`Compte créé avec succès ! Bienvenue, ${currentUser.username} !`);
+            
+            // Réinitialiser le formulaire
+            registerForm.reset();
+            
+            // Ajouter un message dans la chronologie
+            const timelineEl = document.querySelector('.timeline');
+            if (timelineEl) {
+                const now = new Date();
+                const formattedDateTime = `${now.toLocaleDateString()} - ${now.toLocaleTimeString()}`;
+                
+                const newEvent = document.createElement('div');
+                newEvent.className = 'timeline-item';
+                newEvent.innerHTML = `
+                    <div class="timeline-time">${formattedDateTime}</div>
+                    <div class="timeline-title">Nouvel utilisateur</div>
+                    <div class="timeline-desc">${username} a rejoint le serveur.</div>
+                `;
+                
+                timelineEl.insertBefore(newEvent, timelineEl.firstChild);
+                
+                if (timelineEl.children.length > 5) {
+                    timelineEl.removeChild(timelineEl.lastChild);
+                }
+            }
+        });
+    }
+    
+    // Gestion de la déconnexion
+    if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+            if (currentUser) {
+                // Mettre à jour l'état en ligne
+                const onlineUsers = getOnlineUsers();
+                const userIndex = onlineUsers.findIndex(u => u.id === currentUser.id);
+                if (userIndex !== -1) {
+                    onlineUsers.splice(userIndex, 1);
+                    saveOnlineUsers(onlineUsers);
+                }
+                
+                // Supprimer les données de l'utilisateur local
+                localStorage.removeItem('btssio_craft_current_user');
+                currentUser = null;
+                
+                // Mettre à jour l'interface
+                updateAuthUI();
+                
+                // Désactiver le chat
+                chatInputField.disabled = true;
+                sendButton.disabled = true;
+                chatInputField.placeholder = "Connectez-vous pour envoyer un message...";
+                
+                // Mettre à jour la liste des utilisateurs en ligne
+                updateOnlineUsersList();
+                
+                // Notifier l'utilisateur
+                showToast('Vous avez été déconnecté');
+            }
+        });
+    }
+    
+    // Gestion de l'envoi de messages
+    if (sendButton) {
+        sendButton.addEventListener('click', handleSendMessage);
+    }
+    
+    if (chatInputField) {
+        chatInputField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
+    }
+    
     // Démarrer le rafraîchissement automatique
     function startAutoRefresh() {
         // Charger les données immédiatement
-        loadPlayers();
         loadServerStatus();
-        lastRefreshTime = Date.now();
+        loadPlayers();
+        updateOnlineUsersList();
         
-        // Démarrer le timer de rafraîchissement
+        lastRefreshTime = Date.now();
+        lastPlayersRefreshTime = Date.now();
+        lastUsersRefreshTime = Date.now();
+        
+        // Démarrer les timers de rafraîchissement
         refreshTimer = setInterval(updateRefreshTimer, 1000);
+        playersRefreshTimer = setInterval(updatePlayersRefreshTimer, 1000);
+        usersRefreshTimer = setInterval(updateUsersRefreshTimer, 1000);
     }
     
     // Initialiser l'application
     startAutoRefresh();
     setupHeartbeat();
+    checkLoggedInUser();
     
     // Vérifier si le document est visible et ajuster le rafraîchissement
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
             // Suspendre le rafraîchissement automatique
             clearInterval(refreshTimer);
+            clearInterval(playersRefreshTimer);
+            clearInterval(usersRefreshTimer);
         } else {
             // Reprendre le rafraîchissement automatique
             clearInterval(refreshTimer);
+            clearInterval(playersRefreshTimer);
+            clearInterval(usersRefreshTimer);
+            
             refreshTimer = setInterval(updateRefreshTimer, 1000);
+            playersRefreshTimer = setInterval(updatePlayersRefreshTimer, 1000);
+            usersRefreshTimer = setInterval(updateUsersRefreshTimer, 1000);
             
             // Rafraîchir immédiatement les données
-            loadPlayers();
             loadServerStatus();
+            loadPlayers();
+            updateOnlineUsersList();
+            
             lastRefreshTime = Date.now();
+            lastPlayersRefreshTime = Date.now();
+            lastUsersRefreshTime = Date.now();
+            
+            // Mettre à jour l'activité de l'utilisateur
+            if (currentUser) {
+                updateUserLastActivity(currentUser.id);
+            }
+        }
+    });
+    
+    // Mettre à jour périodiquement l'activité de l'utilisateur connecté
+    if (currentUser) {
+        setInterval(() => {
+            updateUserLastActivity(currentUser.id);
+        }, 60000); // Toutes les minutes
+    }
+    
+    // Ajouter un événement pour détecter l'activité de l'utilisateur
+    document.addEventListener('click', function() {
+        if (currentUser) {
+            updateUserLastActivity(currentUser.id);
+        }
+    });
+    
+    document.addEventListener('keypress', function() {
+        if (currentUser) {
+            updateUserLastActivity(currentUser.id);
         }
     });
 });
