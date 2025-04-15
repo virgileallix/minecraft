@@ -6,33 +6,59 @@ document.addEventListener('DOMContentLoaded', function() {
     const refreshStatus = document.getElementById('refresh-status');
     const copyAddress = document.getElementById('copy-address');
     const toast = document.getElementById('toast');
-    const demoModeToggle = document.getElementById('demo-mode');
+    const refreshTimerEl = document.getElementById('refresh-timer');
+    const refreshTimerStatusEl = document.getElementById('refresh-timer-status');
+    const onlineCountEl = document.getElementById('online-count');
+    const serverActivityChart = document.getElementById('server-activity-chart');
     
     // URLs des APIs
     const playersApiUrl = 'https://panel.omgserv.com/json/447820/players';
     const statusApiUrl = 'https://panel.omgserv.com/json/447820/status';
     
-    // État du mode démo
-    let isDemoMode = false;
+    // Intervalle de rafraîchissement (10 secondes)
+    const refreshInterval = 10000;
+    let lastRefreshTime = Date.now();
+    let refreshTimer;
     
-    // Fonction pour afficher les notifications toast
-    function showToast(message, icon = 'check-circle', isSuccess = true) {
-        const toastIcon = toast.querySelector('.toast-icon i');
-        const toastMessage = toast.querySelector('.toast-message');
-        
-        toastIcon.className = `fas fa-${icon}`;
-        toastIcon.style.color = isSuccess ? 'var(--primary)' : 'var(--accent)';
-        toastMessage.textContent = message;
-        
-        toast.classList.add('show');
-        
-        // Masquer après 3 secondes
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
+    // Historique des données pour les graphiques
+    const activityHistory = {
+        times: [],
+        players: [],
+        cpu: [],
+        ram: []
+    };
+    
+    // Fonctions de récupération des données
+    async function fetchData(url) {
+        try {
+            // Tentative directe
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                },
+                cache: 'no-store'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error(`Erreur lors de la récupération des données: ${error.message}`);
+            
+            // Tentative avec proxies CORS si nécessaire
+            try {
+                return await fetchWithCorsProxy(url);
+            } catch (proxyError) {
+                console.error('Erreur avec les proxies CORS:', proxyError);
+                throw error;
+            }
+        }
     }
     
-    // Fonction pour essayer plusieurs proxies CORS 
+    // Fonction pour essayer plusieurs proxies CORS en cas de problème CORS
     async function fetchWithCorsProxy(url) {
         // Liste des proxies CORS à essayer
         const corsProxies = [
@@ -40,11 +66,6 @@ document.addEventListener('DOMContentLoaded', function() {
             'https://cors-anywhere.herokuapp.com/',
             'https://api.allorigins.win/raw?url='
         ];
-        
-        // Si mode démo, ne pas essayer les proxies
-        if (isDemoMode) {
-            throw new Error('Mode démo activé');
-        }
         
         // Essayer chaque proxy jusqu'à ce qu'un fonctionne
         for (const proxy of corsProxies) {
@@ -64,34 +85,66 @@ document.addEventListener('DOMContentLoaded', function() {
         throw new Error('Tous les proxys CORS ont échoué');
     }
     
+    // Fonction pour afficher les notifications toast
+    function showToast(message, icon = 'check-circle', isSuccess = true) {
+        const toastIcon = toast.querySelector('.toast-icon i');
+        const toastMessage = toast.querySelector('.toast-message');
+        
+        toastIcon.className = `fas fa-${icon}`;
+        toastIcon.style.color = isSuccess ? 'var(--primary)' : 'var(--accent)';
+        toastMessage.textContent = message;
+        
+        toast.classList.add('show');
+        
+        // Masquer après 3 secondes
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+    
+    // Fonction pour obtenir l'URL de l'avatar du joueur
+    function getPlayerAvatarUrl(username) {
+        // Utilisation du service mc-heads.net pour obtenir les avatars
+        return `https://mc-heads.net/avatar/${username}/40`;
+    }
+    
     // Fonction pour charger les joueurs
     async function loadPlayers() {
         // État de chargement
-        playerList.innerHTML = `
-            <li class="player-item loading">
-                <div class="player-avatar">
-                    <i class="fas fa-spinner fa-spin"></i>
-                </div>
-                <div class="player-info">
-                    <div class="player-name">Chargement...</div>
-                    <div class="player-status">Récupération des joueurs</div>
-                </div>
-            </li>
-        `;
+        if (playerList.querySelectorAll('.player-item').length === 0) {
+            playerList.innerHTML = `
+                <li class="player-item loading">
+                    <div class="player-avatar">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <div class="player-info">
+                        <div class="player-name">Chargement...</div>
+                        <div class="player-status">Récupération des joueurs</div>
+                    </div>
+                </li>
+            `;
+        }
         
         try {
-            // Charger les données (réelles ou simulées)
-            const data = isDemoMode ? simulatePlayersData() : await fetchWithCorsProxy(playersApiUrl);
+            // Charger les données
+            const data = await fetchData(playersApiUrl);
             
             // Vider la liste des joueurs
             playerList.innerHTML = '';
+            
+            // Mettre à jour le compteur de joueurs en ligne
+            if (onlineCountEl) {
+                onlineCountEl.textContent = data.players ? data.players.length : 0;
+            }
             
             // Vérifier si des joueurs sont connectés
             if (!data.players || data.players.length === 0) {
                 // Aucun joueur connecté
                 playerList.innerHTML = `
                     <li class="player-item no-players">
-                        <div class="player-avatar">?</div>
+                        <div class="player-avatar">
+                            <i class="fas fa-user-slash"></i>
+                        </div>
                         <div class="player-info">
                             <div class="player-name">Aucun joueur connecté</div>
                             <div class="player-status">Soyez le premier à rejoindre !</div>
@@ -99,19 +152,37 @@ document.addEventListener('DOMContentLoaded', function() {
                     </li>
                 `;
             } else {
+                // Ajouter les joueurs à l'historique
+                activityHistory.times.push(new Date().toLocaleTimeString());
+                activityHistory.players.push(data.players.length);
+                
+                // Limiter l'historique à 20 points
+                if (activityHistory.times.length > 20) {
+                    activityHistory.times.shift();
+                    activityHistory.players.shift();
+                }
+                
+                // Mettre à jour le graphique
+                updateActivityChart();
+                
                 // Afficher chaque joueur
                 data.players.forEach(player => {
-                    // Récupérer la première lettre du pseudo
-                    const firstLetter = player.charAt(0).toUpperCase();
-                    
                     // Créer l'élément pour le joueur
                     const playerItem = document.createElement('li');
                     playerItem.className = 'player-item';
                     playerItem.innerHTML = `
-                        <div class="player-avatar">${firstLetter}</div>
+                        <div class="player-avatar">
+                            <img src="${getPlayerAvatarUrl(player)}" alt="${player}" class="player-head" />
+                        </div>
                         <div class="player-info">
                             <div class="player-name">${player}</div>
-                            <div class="player-status">${isDemoMode ? 'En ligne (simulé)' : 'En ligne'}</div>
+                            <div class="player-status">En ligne</div>
+                        </div>
+                        <div class="player-stats">
+                            <div class="player-stat">
+                                <i class="fas fa-clock"></i>
+                                <span>En jeu</span>
+                            </div>
                         </div>
                     `;
                     
@@ -122,55 +193,40 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Erreur avec l\'API des joueurs:', error);
             
-            // Si on n'est pas déjà en mode démo, basculer en mode démo
-            if (!isDemoMode) {
-                console.log("Basculement automatique en mode démo pour les joueurs");
-                const demoData = simulatePlayersData();
-                
-                // Vider la liste
-                playerList.innerHTML = '';
-                
-                // Afficher les joueurs simulés
-                demoData.players.forEach(player => {
-                    const firstLetter = player.charAt(0).toUpperCase();
-                    
-                    const playerItem = document.createElement('li');
-                    playerItem.className = 'player-item';
-                    playerItem.innerHTML = `
-                        <div class="player-avatar">${firstLetter}</div>
+            // Afficher un message d'erreur
+            if (playerList.querySelectorAll('.player-item').length === 0) {
+                playerList.innerHTML = `
+                    <li class="player-item error-state">
+                        <div class="player-avatar"><i class="fas fa-exclamation-triangle"></i></div>
                         <div class="player-info">
-                            <div class="player-name">${player}</div>
-                            <div class="player-status">En ligne (données simulées)</div>
+                            <div class="player-name">Erreur de connexion</div>
+                            <div class="player-status">Impossible de récupérer les données des joueurs</div>
                         </div>
-                    `;
-                    
-                    playerList.appendChild(playerItem);
-                });
-                
-                // Notifier l'utilisateur
-                showToast('Mode démonstration activé automatiquement', 'info-circle', false);
-                
-                // Mettre à jour le toggle
-                demoModeToggle.checked = true;
-                isDemoMode = true;
+                    </li>
+                `;
             }
         }
     }
     
     // Fonction pour charger le statut du serveur
     async function loadServerStatus() {
-        // État de chargement pour chaque élément du statut
-        serverStatus.querySelectorAll('.status-value').forEach(value => {
-            value.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Chargement...';
-        });
-        
         try {
-            // Charger les données (réelles ou simulées)
-            const data = isDemoMode ? simulateServerStatus() : await fetchWithCorsProxy(statusApiUrl);
+            // Charger les données
+            const data = await fetchData(statusApiUrl);
             
             if (data && data.status) {
                 const status = data.status;
                 const isOnline = status.online;
+                
+                // Ajouter à l'historique
+                activityHistory.cpu.push(status.cpu);
+                activityHistory.ram.push(Math.round(status.ram / 1024));
+                
+                // Limiter l'historique
+                if (activityHistory.cpu.length > 20) {
+                    activityHistory.cpu.shift();
+                    activityHistory.ram.shift();
+                }
                 
                 // Statut en ligne/hors ligne
                 const statusValue = serverStatus.querySelector('.status-item:nth-child(1) .status-value');
@@ -180,124 +236,152 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // CPU
                 const cpuValue = serverStatus.querySelector('.status-item:nth-child(2) .status-value');
-                cpuValue.textContent = isOnline ? `${status.cpu}%` : 'N/C';
+                cpuValue.innerHTML = isOnline ? 
+                    `<div class="progress-bar"><div class="progress-fill" style="width: ${status.cpu}%"></div><span>${status.cpu}%</span></div>` : 
+                    'N/C';
                 
                 // RAM
                 const ramValue = serverStatus.querySelector('.status-item:nth-child(3) .status-value');
-                ramValue.textContent = isOnline ? `${Math.round(status.ram / 1024)} Mo` : 'N/C';
+                const ramPercent = isOnline ? Math.round((status.ram / (status.players.max * 512 * 1024)) * 100) : 0;
+                ramValue.innerHTML = isOnline ? 
+                    `<div class="progress-bar"><div class="progress-fill" style="width: ${ramPercent}%"></div><span>${Math.round(status.ram / 1024)} Mo</span></div>` : 
+                    'N/C';
                 
                 // Joueurs
                 const playersValue = serverStatus.querySelector('.status-item:nth-child(4) .status-value');
-                playersValue.textContent = isOnline ? 
-                    `${status.players.online} / ${status.players.max}` : 'N/C';
+                const playersPercent = isOnline ? Math.round((status.players.online / status.players.max) * 100) : 0;
+                playersValue.innerHTML = isOnline ? 
+                    `<div class="progress-bar"><div class="progress-fill" style="width: ${playersPercent}%"></div><span>${status.players.online} / ${status.players.max}</span></div>` : 
+                    'N/C';
+                
+                // Mettre à jour le compteur de joueurs en ligne
+                if (onlineCountEl) {
+                    onlineCountEl.textContent = isOnline ? status.players.online : 0;
+                }
+                
+                // Mettre à jour le graphique
+                updateActivityChart();
             } else {
                 throw new Error('Format de données invalide');
             }
         } catch (error) {
             console.error('Erreur avec l\'API de statut:', error);
             
-            // Si on n'est pas déjà en mode démo, basculer en mode démo
-            if (!isDemoMode) {
-                console.log("Basculement automatique en mode démo pour le statut");
-                const demoData = simulateServerStatus();
-                const status = demoData.status;
-                
-                // Statut en ligne/hors ligne
-                const statusValue = serverStatus.querySelector('.status-item:nth-child(1) .status-value');
-                statusValue.innerHTML = '<span class="status-online">En ligne (simulé)</span>';
-                
-                // CPU
-                const cpuValue = serverStatus.querySelector('.status-item:nth-child(2) .status-value');
-                cpuValue.textContent = `${status.cpu}% (simulé)`;
-                
-                // RAM
-                const ramValue = serverStatus.querySelector('.status-item:nth-child(3) .status-value');
-                ramValue.textContent = `${Math.round(status.ram / 1024)} Mo (simulé)`;
-                
-                // Joueurs
-                const playersValue = serverStatus.querySelector('.status-item:nth-child(4) .status-value');
-                playersValue.textContent = `${status.players.online} / ${status.players.max} (simulé)`;
-                
-                // Notifier l'utilisateur
-                showToast('Mode démonstration activé automatiquement', 'info-circle', false);
-                
-                // Mettre à jour le toggle
-                demoModeToggle.checked = true;
-                isDemoMode = true;
+            // Afficher un état d'erreur pour chaque élément
+            serverStatus.querySelectorAll('.status-value').forEach(value => {
+                value.innerHTML = '<span class="status-error">Erreur</span>';
+            });
+        }
+    }
+    
+    // Fonction pour mettre à jour le graphique d'activité
+    function updateActivityChart() {
+        if (!serverActivityChart || activityHistory.times.length < 2) return;
+        
+        // Mettre à jour le graphique avec Chart.js si disponible
+        if (window.Chart && serverActivityChart.getContext) {
+            if (!window.serverChart) {
+                // Créer le graphique pour la première fois
+                window.serverChart = new Chart(serverActivityChart.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: activityHistory.times,
+                        datasets: [
+                            {
+                                label: 'Joueurs',
+                                data: activityHistory.players,
+                                borderColor: 'rgb(82, 165, 53)',
+                                backgroundColor: 'rgba(82, 165, 53, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'CPU %',
+                                data: activityHistory.cpu,
+                                borderColor: 'rgb(91, 141, 217)',
+                                backgroundColor: 'rgba(91, 141, 217, 0.1)',
+                                tension: 0.3,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        },
+                        animation: {
+                            duration: 500
+                        }
+                    }
+                });
+            } else {
+                // Mettre à jour le graphique existant
+                window.serverChart.data.labels = activityHistory.times;
+                window.serverChart.data.datasets[0].data = activityHistory.players;
+                window.serverChart.data.datasets[1].data = activityHistory.cpu;
+                window.serverChart.update();
             }
         }
     }
     
-    // Fonction pour simuler des données de statut
-    function simulateServerStatus() {
-        console.log("Utilisation de données de statut simulées");
+    // Fonction pour mettre à jour le timer de rafraîchissement
+    function updateRefreshTimer() {
+        if (!refreshTimerEl || !refreshTimerStatusEl) return;
         
-        // Données de test
-        return {
-            status: {
-                online: true,
-                cpu: 25,
-                ram: 2048 * 1024, // 2 GB en Ko
-                players: {
-                    online: 3,
-                    max: 20
-                }
-            }
-        };
-    }
-    
-    // Fonction pour simuler des données de joueurs
-    function simulatePlayersData() {
-        console.log("Utilisation de données de joueurs simulées");
+        const now = Date.now();
+        const timeElapsed = now - lastRefreshTime;
+        const timeRemaining = Math.max(0, refreshInterval - timeElapsed);
+        const secondsRemaining = Math.ceil(timeRemaining / 1000);
         
-        // Données de test
-        return {
-            players: ["MinecraftPro", "BTSSIODev", "CraftMaster"]
-        };
-    }
-    
-    // Événement pour le basculement du mode démo
-    demoModeToggle.addEventListener('change', function() {
-        isDemoMode = this.checked;
-        console.log("Mode démo:", isDemoMode ? "activé" : "désactivé");
+        // Mettre à jour l'affichage du timer
+        refreshTimerEl.textContent = secondsRemaining;
+        refreshTimerStatusEl.textContent = secondsRemaining;
         
-        // Recharger les données avec le nouveau mode
-        loadPlayers();
-        loadServerStatus();
-        
-        // Afficher une notification
-        if (isDemoMode) {
-            showToast('Mode démonstration activé', 'info-circle');
-        } else {
-            showToast('Mode démonstration désactivé', 'info-circle');
+        // Mettre à jour la barre de progression
+        const progressBar = document.getElementById('refresh-progress');
+        if (progressBar) {
+            const percentage = (timeElapsed / refreshInterval) * 100;
+            progressBar.style.width = `${percentage}%`;
         }
-    });
+        
+        // Si le temps est écoulé, rafraîchir les données
+        if (timeElapsed >= refreshInterval) {
+            loadPlayers();
+            loadServerStatus();
+            lastRefreshTime = now;
+        }
+    }
     
-    // Événement de clic sur le bouton de rafraîchissement des joueurs
-    refreshPlayers.addEventListener('click', function() {
-        const icon = this.querySelector('i');
-        icon.classList.add('spinning');
+    // Mettre à jour les événements récents
+    function updateServerEvents() {
+        const timelineEl = document.querySelector('.timeline');
+        if (!timelineEl) return;
         
-        loadPlayers();
+        // Obtenir la date et l'heure actuelles formatées
+        const now = new Date();
+        const formattedDateTime = `${now.toLocaleDateString()} - ${now.toLocaleTimeString()}`;
         
-        // Retirer la classe spinning après 1 seconde
-        setTimeout(() => {
-            icon.classList.remove('spinning');
-        }, 1000);
-    });
-    
-    // Événement de clic sur le bouton de rafraîchissement du statut
-    refreshStatus.addEventListener('click', function() {
-        const icon = this.querySelector('i');
-        icon.classList.add('spinning');
+        // Créer un nouvel événement pour la mise à jour
+        const newEvent = document.createElement('div');
+        newEvent.className = 'timeline-item';
+        newEvent.innerHTML = `
+            <div class="timeline-time">${formattedDateTime}</div>
+            <div class="timeline-title">Actualisation des données</div>
+            <div class="timeline-desc">Les données du serveur ont été mises à jour automatiquement.</div>
+        `;
         
-        loadServerStatus();
+        // Ajouter l'événement au début de la timeline
+        timelineEl.insertBefore(newEvent, timelineEl.firstChild);
         
-        // Retirer la classe spinning après 1 seconde
-        setTimeout(() => {
-            icon.classList.remove('spinning');
-        }, 1000);
-    });
+        // Limiter à 5 événements
+        if (timelineEl.children.length > 5) {
+            timelineEl.removeChild(timelineEl.lastChild);
+        }
+    }
     
     // Copier l'adresse du serveur
     copyAddress.addEventListener('click', function() {
@@ -311,20 +395,82 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
     
-    // Fonction pour démarrer le rafraîchissement automatique
-    function startAutoRefresh() {
-        const refreshInterval = 60000; // 60 secondes
+    // Événement de clic sur le bouton de rafraîchissement des joueurs
+    refreshPlayers.addEventListener('click', function() {
+        const icon = this.querySelector('i');
+        icon.classList.add('spinning');
         
-        setInterval(() => {
-            loadPlayers();
-            loadServerStatus();
-        }, refreshInterval);
+        loadPlayers();
+        lastRefreshTime = Date.now();
+        
+        // Retirer la classe spinning après 1 seconde
+        setTimeout(() => {
+            icon.classList.remove('spinning');
+        }, 1000);
+        
+        // Mettre à jour les événements
+        updateServerEvents();
+    });
+    
+    // Événement de clic sur le bouton de rafraîchissement du statut
+    refreshStatus.addEventListener('click', function() {
+        const icon = this.querySelector('i');
+        icon.classList.add('spinning');
+        
+        loadServerStatus();
+        lastRefreshTime = Date.now();
+        
+        // Retirer la classe spinning après 1 seconde
+        setTimeout(() => {
+            icon.classList.remove('spinning');
+        }, 1000);
+        
+        // Mettre à jour les événements
+        updateServerEvents();
+    });
+    
+    // Mettre en place l'animation de "battement de cœur" du serveur
+    function setupHeartbeat() {
+        const serverHeartbeat = document.getElementById('server-heartbeat');
+        if (serverHeartbeat) {
+            setInterval(() => {
+                serverHeartbeat.classList.add('pulse');
+                setTimeout(() => {
+                    serverHeartbeat.classList.remove('pulse');
+                }, 300);
+            }, 2000);
+        }
     }
     
-    // Charger les données initialement
-    loadPlayers();
-    loadServerStatus();
-    
     // Démarrer le rafraîchissement automatique
+    function startAutoRefresh() {
+        // Charger les données immédiatement
+        loadPlayers();
+        loadServerStatus();
+        lastRefreshTime = Date.now();
+        
+        // Démarrer le timer de rafraîchissement
+        refreshTimer = setInterval(updateRefreshTimer, 1000);
+    }
+    
+    // Initialiser l'application
     startAutoRefresh();
+    setupHeartbeat();
+    
+    // Vérifier si le document est visible et ajuster le rafraîchissement
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // Suspendre le rafraîchissement automatique
+            clearInterval(refreshTimer);
+        } else {
+            // Reprendre le rafraîchissement automatique
+            clearInterval(refreshTimer);
+            refreshTimer = setInterval(updateRefreshTimer, 1000);
+            
+            // Rafraîchir immédiatement les données
+            loadPlayers();
+            loadServerStatus();
+            lastRefreshTime = Date.now();
+        }
+    });
 });

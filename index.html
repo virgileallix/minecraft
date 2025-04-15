@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTSSIO Craft - Serveur Minecraft</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.css">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -14,16 +16,29 @@
             <div class="site-title">
                 <div class="site-logo">
                     <i class="fas fa-cube"></i>
+                    <div id="server-heartbeat"></div>
                 </div>
                 <h1 class="site-name">BTSSIO Craft</h1>
             </div>
             
-            <div class="server-address" id="copy-address">
-                <span class="address-text">btssio.craft.gg</span>
-                <span class="copy-icon"><i class="fas fa-copy"></i></span>
+            <div class="header-stats">
+                <div class="online-counter">
+                    <i class="fas fa-users"></i>
+                    <span>Joueurs en ligne: <span id="online-count">...</span></span>
+                </div>
+                
+                <div class="server-address" id="copy-address">
+                    <span class="address-text">btssio.craft.gg</span>
+                    <span class="copy-icon"><i class="fas fa-copy"></i></span>
+                </div>
             </div>
         </div>
     </header>
+    
+    <!-- Bannière du serveur -->
+    <div class="container server-banner-container">
+        <img src="https://panel.omgserv.com/banner/447820" alt="BTSSIO Craft - Bannière du serveur" class="server-banner">
+    </div>
     
     <!-- Main Content -->
     <div class="container">
@@ -37,6 +52,7 @@
                     <h2 class="mc-card-title">Statut du serveur</h2>
                     <div class="mc-card-refresh" id="refresh-status">
                         <i class="fas fa-sync-alt"></i>
+                        <div class="refresh-timer" id="refresh-timer">10</div>
                     </div>
                 </div>
                 
@@ -75,6 +91,13 @@
                             </div>
                         </li>
                     </ul>
+                    
+                    <div class="refresh-timer-container">
+                        Rafraîchissement automatique dans <span id="refresh-timer-status">10</span> secondes
+                        <div id="refresh-progress-container">
+                            <div id="refresh-progress"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -106,14 +129,102 @@
             </div>
         </div>
         
-        <!-- Mode Demo Toggle -->
-        <div class="demo-toggle">
-            <label class="mc-toggle">
-                <input type="checkbox" id="demo-mode">
-                <span class="toggle-slider"></span>
-                <span class="toggle-label">Mode démonstration</span>
-            </label>
-            <p class="demo-info">Activer si les APIs ne fonctionnent pas</p>
+        <!-- Second Row -->
+        <div class="main-content">
+            <!-- Server Activity Chart -->
+            <div class="mc-card">
+                <div class="mc-card-header">
+                    <div class="mc-card-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h2 class="mc-card-title">Activité du serveur</h2>
+                </div>
+                
+                <div class="mc-card-content">
+                    <div class="server-activity">
+                        <canvas id="server-activity-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Minecraft Weather -->
+            <div class="mc-card">
+                <div class="mc-card-header">
+                    <div class="mc-card-icon">
+                        <i class="fas fa-cloud-sun"></i>
+                    </div>
+                    <h2 class="mc-card-title">Météo du monde</h2>
+                </div>
+                
+                <div class="mc-card-content">
+                    <div class="weather-widget">
+                        <div class="weather-icon">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <div class="weather-temp">Chargement...</div>
+                        <div class="weather-desc">En attente des données</div>
+                        
+                        <div class="weather-details">
+                            <div class="weather-detail">
+                                <div class="weather-detail-label">Humidité</div>
+                                <div class="weather-detail-value">--</div>
+                            </div>
+                            <div class="weather-detail">
+                                <div class="weather-detail-label">Vent</div>
+                                <div class="weather-detail-value">--</div>
+                            </div>
+                            <div class="weather-detail">
+                                <div class="weather-detail-label">Cycle</div>
+                                <div class="weather-detail-value">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Third Row -->
+        <div class="main-content">
+            <!-- Server Timeline -->
+            <div class="mc-card">
+                <div class="mc-card-header">
+                    <div class="mc-card-icon">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <h2 class="mc-card-title">Événements récents</h2>
+                </div>
+                
+                <div class="mc-card-content">
+                    <div class="timeline">
+                        <!-- Les événements seront générés automatiquement -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Server Chat (Optional) -->
+            <div class="mc-card">
+                <div class="mc-card-header">
+                    <div class="mc-card-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h2 class="mc-card-title">Chat du serveur</h2>
+                </div>
+                
+                <div class="mc-card-content">
+                    <div class="chat-widget">
+                        <div class="chat-messages">
+                            <div class="chat-message server">
+                                <strong>Serveur:</strong> Le chat sera disponible prochainement...
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input">
+                            <input type="text" placeholder="Tapez votre message..." disabled>
+                            <button class="send-button"><i class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -121,6 +232,7 @@
     <footer class="site-footer">
         <div class="container">
             <p>© 2025 BTSSIO Craft - Serveur Minecraft vanilla 1.21.5 entre amis</p>
+            <p>Mise à jour en temps réel toutes les 10 secondes</p>
         </div>
     </footer>
     
