@@ -87,19 +87,23 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour afficher les notifications toast
     function showToast(message, icon = 'check-circle', isSuccess = true) {
+        if (!toast) return;
+        
         const toastIcon = toast.querySelector('.toast-icon i');
         const toastMessage = toast.querySelector('.toast-message');
         
-        toastIcon.className = `fas fa-${icon}`;
-        toastIcon.style.color = isSuccess ? 'var(--primary)' : 'var(--accent)';
-        toastMessage.textContent = message;
-        
-        toast.classList.add('show');
-        
-        // Masquer après 3 secondes
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
+        if (toastIcon && toastMessage) {
+            toastIcon.className = `fas fa-${icon}`;
+            toastIcon.style.color = isSuccess ? 'var(--primary)' : 'var(--accent)';
+            toastMessage.textContent = message;
+            
+            toast.classList.add('show');
+            
+            // Masquer après 3 secondes
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
     }
     
     // Fonction pour obtenir l'URL de l'avatar du joueur
@@ -110,6 +114,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour charger les joueurs
     async function loadPlayers() {
+        if (!playerList) return;
+        
         // État de chargement
         if (playerList.querySelectorAll('.player-item').length === 0) {
             playerList.innerHTML = `
@@ -210,6 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour charger le statut du serveur
     async function loadServerStatus() {
+        if (!serverStatus) return;
+        
         try {
             // Charger les données
             const data = await fetchData(statusApiUrl);
@@ -230,29 +238,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Statut en ligne/hors ligne
                 const statusValue = serverStatus.querySelector('.status-item:nth-child(1) .status-value');
-                statusValue.innerHTML = isOnline ? 
-                    '<span class="status-online">En ligne</span>' : 
-                    '<span class="status-offline">Hors ligne</span>';
+                if (statusValue) {
+                    statusValue.innerHTML = isOnline ? 
+                        '<span class="status-online">En ligne</span>' : 
+                        '<span class="status-offline">Hors ligne</span>';
+                }
                 
                 // CPU
                 const cpuValue = serverStatus.querySelector('.status-item:nth-child(2) .status-value');
-                cpuValue.innerHTML = isOnline ? 
-                    `<div class="progress-bar"><div class="progress-fill" style="width: ${status.cpu}%"></div><span>${status.cpu}%</span></div>` : 
-                    'N/C';
+                if (cpuValue) {
+                    cpuValue.innerHTML = isOnline ? 
+                        `<div class="progress-bar"><div class="progress-fill" style="width: ${status.cpu}%"></div><span>${status.cpu}%</span></div>` : 
+                        'N/C';
+                }
                 
                 // RAM
                 const ramValue = serverStatus.querySelector('.status-item:nth-child(3) .status-value');
-                const ramPercent = isOnline ? Math.round((status.ram / (status.players.max * 512 * 1024)) * 100) : 0;
-                ramValue.innerHTML = isOnline ? 
-                    `<div class="progress-bar"><div class="progress-fill" style="width: ${ramPercent}%"></div><span>${Math.round(status.ram / 1024)} Mo</span></div>` : 
-                    'N/C';
+                if (ramValue) {
+                    const ramPercent = isOnline ? Math.round((status.ram / (status.players.max * 512 * 1024)) * 100) : 0;
+                    ramValue.innerHTML = isOnline ? 
+                        `<div class="progress-bar"><div class="progress-fill" style="width: ${ramPercent}%"></div><span>${Math.round(status.ram / 1024)} Mo</span></div>` : 
+                        'N/C';
+                }
                 
                 // Joueurs
                 const playersValue = serverStatus.querySelector('.status-item:nth-child(4) .status-value');
-                const playersPercent = isOnline ? Math.round((status.players.online / status.players.max) * 100) : 0;
-                playersValue.innerHTML = isOnline ? 
-                    `<div class="progress-bar"><div class="progress-fill" style="width: ${playersPercent}%"></div><span>${status.players.online} / ${status.players.max}</span></div>` : 
-                    'N/C';
+                if (playersValue) {
+                    const playersPercent = isOnline ? Math.round((status.players.online / status.players.max) * 100) : 0;
+                    playersValue.innerHTML = isOnline ? 
+                        `<div class="progress-bar"><div class="progress-fill" style="width: ${playersPercent}%"></div><span>${status.players.online} / ${status.players.max}</span></div>` : 
+                        'N/C';
+                }
                 
                 // Mettre à jour le compteur de joueurs en ligne
                 if (onlineCountEl) {
@@ -268,9 +284,12 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Erreur avec l\'API de statut:', error);
             
             // Afficher un état d'erreur pour chaque élément
-            serverStatus.querySelectorAll('.status-value').forEach(value => {
-                value.innerHTML = '<span class="status-error">Erreur</span>';
-            });
+            const statusValues = serverStatus.querySelectorAll('.status-value');
+            if (statusValues) {
+                statusValues.forEach(value => {
+                    value.innerHTML = '<span class="status-error">Erreur</span>';
+                });
+            }
         }
     }
     
@@ -384,50 +403,56 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Copier l'adresse du serveur
-    copyAddress.addEventListener('click', function() {
-        const serverAddress = document.querySelector('.address-text').textContent;
-        navigator.clipboard.writeText(serverAddress)
-            .then(() => {
-                showToast('Adresse du serveur copiée !');
-            })
-            .catch(() => {
-                showToast('Impossible de copier l\'adresse', 'exclamation-circle', false);
-            });
-    });
+    if (copyAddress) {
+        copyAddress.addEventListener('click', function() {
+            const serverAddress = document.querySelector('.address-text').textContent;
+            navigator.clipboard.writeText(serverAddress)
+                .then(() => {
+                    showToast('Adresse du serveur copiée !');
+                })
+                .catch(() => {
+                    showToast('Impossible de copier l\'adresse', 'exclamation-circle', false);
+                });
+        });
+    }
     
     // Événement de clic sur le bouton de rafraîchissement des joueurs
-    refreshPlayers.addEventListener('click', function() {
-        const icon = this.querySelector('i');
-        icon.classList.add('spinning');
-        
-        loadPlayers();
-        lastRefreshTime = Date.now();
-        
-        // Retirer la classe spinning après 1 seconde
-        setTimeout(() => {
-            icon.classList.remove('spinning');
-        }, 1000);
-        
-        // Mettre à jour les événements
-        updateServerEvents();
-    });
+    if (refreshPlayers) {
+        refreshPlayers.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (icon) icon.classList.add('spinning');
+            
+            loadPlayers();
+            lastRefreshTime = Date.now();
+            
+            // Retirer la classe spinning après 1 seconde
+            setTimeout(() => {
+                if (icon) icon.classList.remove('spinning');
+            }, 1000);
+            
+            // Mettre à jour les événements
+            updateServerEvents();
+        });
+    }
     
     // Événement de clic sur le bouton de rafraîchissement du statut
-    refreshStatus.addEventListener('click', function() {
-        const icon = this.querySelector('i');
-        icon.classList.add('spinning');
-        
-        loadServerStatus();
-        lastRefreshTime = Date.now();
-        
-        // Retirer la classe spinning après 1 seconde
-        setTimeout(() => {
-            icon.classList.remove('spinning');
-        }, 1000);
-        
-        // Mettre à jour les événements
-        updateServerEvents();
-    });
+    if (refreshStatus) {
+        refreshStatus.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (icon) icon.classList.add('spinning');
+            
+            loadServerStatus();
+            lastRefreshTime = Date.now();
+            
+            // Retirer la classe spinning après 1 seconde
+            setTimeout(() => {
+                if (icon) icon.classList.remove('spinning');
+            }, 1000);
+            
+            // Mettre à jour les événements
+            updateServerEvents();
+        });
+    }
     
     // Mettre en place l'animation de "battement de cœur" du serveur
     function setupHeartbeat() {
