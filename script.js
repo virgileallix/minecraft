@@ -1,8 +1,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Configuration Discord
-    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1362399809537048627/Are9RBBOYaThb-Ks4S3hwq9HtqpciIRAxVh7BmJwMh6wbCQ75kSlrhiujv7vRvd_NxSb';// À remplacer par l'URL de votre webhook
-    const DISCORD_SERVER_ID = '1361440270448722020'; // ID de votre serveur Discord
-    const DISCORD_CHANNEL_ID = '1361432323006009375'; // ID du canal global
+    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1362399809537048627/Are9RBBOYaThb-Ks4S3hwq9HtqpciIRAxVh7BmJwMh6wbCQ75kSlrhiujv7vRvd_NxSb';
+    const DISCORD_SERVER_ID = '1361440270448722020'; 
+    const DISCORD_CHANNEL_ID = '1361432323006009375';
+    const DISCORD_BOT_TOKEN = 'MTM2MTQ0MDI3MDQ0ODcyMjAyMA.GrfNcj.1uNuTSZ0kufhR0wB2fabqV-vGwhU024kN_RVaM'; // À remplir avec le token de votre bot Discord
+    
+    // Configuration Minecraft
+    const MINECRAFT_API_URL = 'https://panel.omgserv.com/json/447820'; // Base URL pour toutes les API
+    const MINECRAFT_CHAT_API = 'http://votre-serveur-minecraft.com/api/chat'; // À remplacer par votre API de chat Minecraft
     
     // Éléments DOM
     const playerList = document.getElementById('player-list');
@@ -40,28 +45,48 @@ document.addEventListener('DOMContentLoaded', function() {
     const userAvatar = document.getElementById('user-avatar');
     const logoutButton = document.getElementById('logout-button');
     const chatMessages = document.getElementById('chat-messages');
+    const minecraftMessages = document.getElementById('minecraft-messages');
     const chatInputField = document.getElementById('chat-input-field');
     const sendButton = document.getElementById('send-button');
     
     // Éléments DOM pour les onglets du chat
     const chatTabs = document.querySelectorAll('.chat-tab');
-    const discordContainer = document.querySelector('.discord-container');
+    const discordContainer = document.getElementById('discord-container');
     
     // URLs des APIs
-    const playersApiUrl = 'https://panel.omgserv.com/json/447820/players';
-    const statusApiUrl = 'https://panel.omgserv.com/json/447820/status';
+    const playersApiUrl = `${MINECRAFT_API_URL}/players`;
+    const statusApiUrl = `${MINECRAFT_API_URL}/status`;
     
     // Intervalle de rafraîchissement (10 secondes)
     const refreshInterval = 10000;
     let lastRefreshTime = Date.now();
     let lastPlayersRefreshTime = Date.now();
     let lastUsersRefreshTime = Date.now();
+    let lastChatRefreshTime = Date.now();
     let refreshTimer;
     let playersRefreshTimer;
     let usersRefreshTimer;
+    let chatRefreshTimer;
     
     // État de l'utilisateur
     let currentUser = null;
+    
+    // Stockage de l'historique des messages
+    let messageHistory = {
+        local: [],
+        minecraft: [],
+        discord: []
+    };
+    
+    // Fonction pour stocker un message dans l'historique
+    function storeMessage(type, messageData) {
+        messageHistory[type].push(messageData);
+        
+        // Limiter l'historique à 100 messages par type
+        if (messageHistory[type].length > 100) {
+            messageHistory[type].shift();
+        }
+    }
     
     // Base de données simulée pour les utilisateurs (localStorage)
     function getUsers() {
@@ -167,6 +192,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 button.addEventListener('click', function() {
                     const username = this.dataset.username;
                     if (currentUser) {
+                        // Basculer vers l'onglet local
+                        document.querySelector('.chat-tab[data-tab="local"]').click();
+                        
+                        // Envoyer un message privé
+                        const messageInput = document.getElementById('chat-input-field');
+                        if (messageInput) {
+                            messageInput.value = `@${username} `;
+                            messageInput.focus();
+                        }
+                    }
+                });
+            });
+            
+            // Ajouter des écouteurs pour le double-clic sur les avatars d'utilisateurs
+            const userItems = onlineUsersList.querySelectorAll('.user-item');
+            userItems.forEach(item => {
+                item.addEventListener('dblclick', function() {
+                    const username = this.querySelector('.user-name').textContent.split(' ')[0];
+                    if (currentUser && username !== currentUser.username) {
+                        // Basculer vers l'onglet local
+                        document.querySelector('.chat-tab[data-tab="local"]').click();
+                        
                         // Envoyer un message privé
                         const messageInput = document.getElementById('chat-input-field');
                         if (messageInput) {
@@ -253,8 +300,34 @@ document.addEventListener('DOMContentLoaded', function() {
         
         chatMessages.appendChild(messageElem);
         
+        // Stocker le message dans l'historique
+        storeMessage('local', messageData);
+        
         // Faire défiler jusqu'au dernier message
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Fonction pour ajouter un message Minecraft au chat
+    function addMinecraftMessage(messageData) {
+        if (!minecraftMessages) return;
+        
+        const messageElem = document.createElement('div');
+        messageElem.className = `chat-message minecraft`;
+        messageElem.innerHTML = `<strong>${messageData.sender}:</strong> ${messageData.message}`;
+        
+        minecraftMessages.appendChild(messageElem);
+        
+        // Stocker le message dans l'historique
+        storeMessage('minecraft', messageData);
+        
+        // Faire défiler jusqu'au dernier message
+        minecraftMessages.scrollTop = minecraftMessages.scrollHeight;
+        
+        // Si nous ne sommes pas actuellement sur l'onglet Minecraft, montrer une notification
+        const minecraftTab = document.querySelector('.chat-tab[data-tab="minecraft"]');
+        if (minecraftTab && !minecraftTab.classList.contains('active')) {
+            minecraftTab.classList.add('has-new-messages');
+        }
     }
     
     // Fonction pour envoyer un message webhook Discord
@@ -287,6 +360,138 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Fonction pour envoyer un message au serveur Minecraft
+    async function sendMinecraftMessage(message, username) {
+        if (!message || !message.trim()) {
+            return false;
+        }
+        
+        try {
+            const response = await fetch(MINECRAFT_CHAT_API, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    sender: username || 'Invité',
+                    source: 'web'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Erreur lors de l\'envoi du message Minecraft:', error);
+            return false;
+        }
+    }
+    
+    // Fonction pour récupérer les messages Discord récents
+    async function fetchDiscordMessages() {
+        if (!DISCORD_BOT_TOKEN) {
+            console.warn('Token Discord non configuré, impossible de récupérer les messages.');
+            return [];
+        }
+        
+        try {
+            const response = await fetch(`https://discord.com/api/v9/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            
+            const messages = await response.json();
+            return messages.map(msg => ({
+                id: msg.id,
+                sender: msg.author.username,
+                message: msg.content,
+                timestamp: new Date(msg.timestamp).getTime(),
+                source: 'discord'
+            }));
+        } catch (error) {
+            console.error('Erreur lors de la récupération des messages Discord:', error);
+            return [];
+        }
+    }
+    
+    // Fonction pour récupérer les messages Minecraft récents
+    async function fetchMinecraftMessages() {
+        try {
+            const response = await fetch(`${MINECRAFT_CHAT_API}/recent`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            
+            const messages = await response.json();
+            return messages.map(msg => ({
+                id: msg.id,
+                sender: msg.sender,
+                message: msg.message,
+                timestamp: new Date(msg.timestamp).getTime(),
+                source: 'minecraft'
+            }));
+        } catch (error) {
+            console.error('Erreur lors de la récupération des messages Minecraft:', error);
+            return [];
+        }
+    }
+    
+    // Fonction pour mettre à jour les messages du chat
+    async function refreshChatMessages() {
+        // Récupérer les messages Minecraft récents
+        const minecraftMsgs = await fetchMinecraftMessages();
+        
+        // Vérifier les nouveaux messages
+        const existingMcMsgIds = messageHistory.minecraft.map(msg => msg.id);
+        const newMcMessages = minecraftMsgs.filter(msg => !existingMcMsgIds.includes(msg.id));
+        
+        // Ajouter les nouveaux messages au chat Minecraft
+        newMcMessages.forEach(msg => {
+            addMinecraftMessage({
+                sender: msg.sender,
+                message: msg.message
+            });
+        });
+        
+        // Si l'API Discord est configurée, récupérer également les messages Discord
+        if (DISCORD_BOT_TOKEN) {
+            const discordMsgs = await fetchDiscordMessages();
+            
+            // Vérifier les nouveaux messages Discord
+            const existingDiscordMsgIds = messageHistory.discord.map(msg => msg.id);
+            const newDiscordMessages = discordMsgs.filter(msg => !existingDiscordMsgIds.includes(msg.id));
+            
+            // Stocker les nouveaux messages Discord
+            newDiscordMessages.forEach(msg => {
+                storeMessage('discord', msg);
+            });
+            
+            // Notifier les nouveaux messages Discord
+            if (newDiscordMessages.length > 0) {
+                const discordTab = document.querySelector('.chat-tab[data-tab="discord"]');
+                if (discordTab && !discordTab.classList.contains('active')) {
+                    discordTab.classList.add('has-new-messages');
+                }
+            }
+        }
+    }
+    
     // Gérer l'envoi de messages
     function handleSendMessage() {
         if (!currentUser || !chatInputField.value.trim()) return;
@@ -305,25 +510,63 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
+        // Classe CSS différente selon le type de message
+        const messageClass = target ? 'private' : 'user';
+        
+        // Préfixe pour les messages privés
+        const messagePrefix = target ? `<span class="private-indicator">[MP à ${target}]</span> ` : '';
+        
+        // Contenu complet du message
+        const messageContent = messagePrefix + cleanMessage;
+        
         // Ajouter le message au chat local
-        addChatMessage({
+        const messageElem = document.createElement('div');
+        messageElem.className = `chat-message ${messageClass}`;
+        messageElem.innerHTML = `<strong>${currentUser.username}:</strong> ${messageContent}`;
+        chatMessages.appendChild(messageElem);
+        
+        // Stocker le message dans l'historique local
+        storeMessage('local', {
             sender: currentUser.username,
-            message: message
+            message: messageContent,
+            timestamp: Date.now(),
+            source: 'local'
         });
         
-        // Envoyer le message à Discord via le webhook
-        sendDiscordWebhookMessage(message, currentUser.username)
-            .then(success => {
-                if (!success) {
-                    console.warn('Échec de l\'envoi du message à Discord. Retour au comportement local.');
-                    simulateMessageResponse(message, target);
-                }
-            })
-            .catch(error => {
-                console.error('Erreur lors de l\'envoi du message:', error);
-                // Fallback au comportement local
-                simulateMessageResponse(message, target);
-            });
+        // Faire défiler jusqu'au dernier message
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Déterminer où envoyer le message selon l'onglet actif
+        const activeTab = document.querySelector('.chat-tab.active');
+        if (activeTab) {
+            const tabType = activeTab.getAttribute('data-tab');
+            
+            if (tabType === 'local' || tabType === 'discord') {
+                // Envoyer le message à Discord via le webhook
+                sendDiscordWebhookMessage(message, currentUser.username)
+                    .then(success => {
+                        if (!success) {
+                            console.warn('Échec de l\'envoi du message à Discord.');
+                            showToast('Échec de l\'envoi du message à Discord', 'exclamation-circle', false);
+                        }
+                    });
+            }
+            
+            if (tabType === 'local' || tabType === 'minecraft') {
+                // Envoyer le message au serveur Minecraft
+                sendMinecraftMessage(message, currentUser.username)
+                    .then(success => {
+                        if (!success) {
+                            console.warn('Échec de l\'envoi du message à Minecraft.');
+                            showToast('Échec de l\'envoi du message à Minecraft', 'exclamation-circle', false);
+                        }
+                    });
+            }
+        } else {
+            // Par défaut, envoyer à Discord et Minecraft
+            sendDiscordWebhookMessage(message, currentUser.username);
+            sendMinecraftMessage(message, currentUser.username);
+        }
         
         // Mettre à jour l'activité de l'utilisateur
         updateUserLastActivity(currentUser.id);
@@ -332,62 +575,54 @@ document.addEventListener('DOMContentLoaded', function() {
         chatInputField.value = '';
     }
     
-    // Simuler une réponse (pour le comportement local)
-    function simulateMessageResponse(message, target) {
-        // Vérifier si c'est un message privé
-        if (target) {
-            // Simuler une réponse privée
-            setTimeout(() => {
-                addChatMessage({
-                    sender: target,
-                    message: `@${currentUser.username} Salut ! J'ai bien reçu ton message privé.`
-                });
-            }, 1000 + Math.random() * 2000);
-        } else {
-            // Simuler une réponse du serveur
-            setTimeout(() => {
-                const responses = [
-                    "Merci pour ton message !",
-                    "N'oublie pas de rejoindre notre serveur Discord !",
-                    "Tu peux aussi nous suivre sur les réseaux sociaux.",
-                    "As-tu besoin d'aide pour quelque chose ?",
-                    "N'hésite pas à poser des questions si tu as besoin d'aide."
-                ];
-                
-                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-                
-                addChatMessage({
-                    sender: 'server',
-                    message: randomResponse
-                });
-            }, 1000 + Math.random() * 2000);
-        }
-    }
-    
     // Initialiser les onglets du chat
     function initChatTabs() {
-        if (!chatTabs.length || !chatMessages || !discordContainer) return;
+        if (!chatTabs.length) return;
+        
+        // Récupérer les éléments DOM
+        const localChat = document.getElementById('chat-messages');
+        const minecraftChat = document.getElementById('minecraft-messages');
+        const discordContainer = document.getElementById('discord-container');
+        
+        // Vérifier que tous les éléments existent
+        if (!localChat || !minecraftChat || !discordContainer) {
+            console.error('Éléments du chat introuvables');
+            return;
+        }
         
         chatTabs.forEach(tab => {
             tab.addEventListener('click', function() {
                 // Désactiver tous les onglets
-                chatTabs.forEach(t => t.classList.remove('active'));
+                chatTabs.forEach(t => {
+                    t.classList.remove('active');
+                    t.classList.remove('has-new-messages');
+                });
                 
                 // Activer l'onglet cliqué
                 this.classList.add('active');
                 
-                // Afficher le contenu correspondant
+                // Cacher tous les conteneurs de chat
+                localChat.style.display = 'none';
+                minecraftChat.style.display = 'none';
+                discordContainer.style.display = 'none';
+                
+                // Afficher le conteneur correspondant
                 const tabType = this.getAttribute('data-tab');
                 
                 if (tabType === 'local') {
-                    chatMessages.style.display = 'flex';
-                    discordContainer.style.display = 'none';
+                    localChat.style.display = 'flex';
+                } else if (tabType === 'minecraft') {
+                    minecraftChat.style.display = 'flex';
                 } else if (tabType === 'discord') {
-                    chatMessages.style.display = 'none';
                     discordContainer.style.display = 'block';
                 }
             });
         });
+        
+        // Initialisation : afficher l'onglet Local par défaut
+        localChat.style.display = 'flex';
+        minecraftChat.style.display = 'none';
+        discordContainer.style.display = 'none';
     }
     
     // Fonctions de récupération des données
@@ -708,6 +943,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Fonction pour mettre à jour le timer de rafraîchissement du chat
+    function updateChatRefreshTimer() {
+        const now = Date.now();
+        const timeElapsed = now - lastChatRefreshTime;
+        
+        // Si 5 secondes se sont écoulées, rafraîchir les messages
+        if (timeElapsed >= 5000) {
+            refreshChatMessages();
+            lastChatRefreshTime = now;
+        }
+    }
+    
     // Mettre à jour les événements récents
     function updateServerEvents() {
         const timelineEl = document.querySelector('.timeline');
@@ -732,6 +979,45 @@ document.addEventListener('DOMContentLoaded', function() {
         // Limiter à 5 événements
         if (timelineEl.children.length > 5) {
             timelineEl.removeChild(timelineEl.lastChild);
+        }
+    }
+    
+    // Fonction pour ajouter des événements serveur spécifiques
+    function addServerEvent(title, desc) {
+        const timelineEl = document.querySelector('.timeline');
+        if (!timelineEl) return;
+        
+        // Obtenir la date et l'heure actuelles formatées
+        const now = new Date();
+        const formattedDateTime = `${now.toLocaleDateString()} - ${now.toLocaleTimeString()}`;
+        
+        // Créer un nouvel événement
+        const newEvent = document.createElement('div');
+        newEvent.className = 'timeline-item';
+        newEvent.innerHTML = `
+            <div class="timeline-time">${formattedDateTime}</div>
+            <div class="timeline-title">${title}</div>
+            <div class="timeline-desc">${desc}</div>
+        `;
+        
+        // Ajouter l'événement au début de la timeline
+        timelineEl.insertBefore(newEvent, timelineEl.firstChild);
+        
+        // Limiter à 5 événements
+        if (timelineEl.children.length > 5) {
+            timelineEl.removeChild(timelineEl.lastChild);
+        }
+    }
+    
+    // Fonction de synchronisation manuelle du chat
+    async function syncChat() {
+        try {
+            await refreshChatMessages();
+            lastChatRefreshTime = Date.now();
+            return true;
+        } catch (error) {
+            console.error('Erreur lors de la synchronisation du chat:', error);
+            return false;
         }
     }
     
@@ -775,7 +1061,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (icon) icon.classList.add('spinning');
             
             loadServerStatus();
-            lastRefreshTime = Date.now();
+            lastRefreshTime = now;
             
             // Retirer la classe spinning après 1 seconde
             setTimeout(() => {
@@ -899,6 +1185,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Notifier l'utilisateur
             showToast(`Bienvenue, ${currentUser.username} !`);
             
+            // Ajouter un événement serveur
+            addServerEvent('Connexion', `${currentUser.username} s'est connecté au chat.`);
+            
             // Réinitialiser le formulaire
             loginForm.reset();
         });
@@ -959,29 +1248,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Notifier l'utilisateur
             showToast(`Compte créé avec succès ! Bienvenue, ${currentUser.username} !`);
             
+            // Ajouter un événement serveur
+            addServerEvent('Nouvel utilisateur', `${username} a créé un compte et rejoint le serveur.`);
+            
             // Réinitialiser le formulaire
             registerForm.reset();
-            
-            // Ajouter un message dans la chronologie
-            const timelineEl = document.querySelector('.timeline');
-            if (timelineEl) {
-                const now = new Date();
-                const formattedDateTime = `${now.toLocaleDateString()} - ${now.toLocaleTimeString()}`;
-                
-                const newEvent = document.createElement('div');
-                newEvent.className = 'timeline-item';
-                newEvent.innerHTML = `
-                    <div class="timeline-time">${formattedDateTime}</div>
-                    <div class="timeline-title">Nouvel utilisateur</div>
-                    <div class="timeline-desc">${username} a rejoint le serveur.</div>
-                `;
-                
-                timelineEl.insertBefore(newEvent, timelineEl.firstChild);
-                
-                if (timelineEl.children.length > 5) {
-                    timelineEl.removeChild(timelineEl.lastChild);
-                }
-            }
         });
     }
     
@@ -996,6 +1267,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     onlineUsers.splice(userIndex, 1);
                     saveOnlineUsers(onlineUsers);
                 }
+                
+                // Ajouter un événement serveur
+                addServerEvent('Déconnexion', `${currentUser.username} s'est déconnecté du chat.`);
                 
                 // Supprimer les données de l'utilisateur local
                 localStorage.removeItem('btssio_craft_current_user');
@@ -1031,27 +1305,69 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Ajouter un bouton de synchronisation pour le chat
+    function addSyncChatButton() {
+        const chatWidget = document.querySelector('.chat-widget');
+        if (!chatWidget) return;
+        
+        const syncButton = document.createElement('button');
+        syncButton.className = 'mc-button-small sync-button';
+        syncButton.innerHTML = '<i class="fas fa-sync"></i> Synchroniser les messages';
+        syncButton.style.marginTop = '5px';
+        syncButton.style.width = '100%';
+        
+        syncButton.addEventListener('click', async function() {
+            const icon = this.querySelector('i');
+            if (icon) icon.classList.add('spinning');
+            
+            const success = await syncChat();
+            
+            if (success) {
+                showToast('Messages synchronisés avec succès');
+            } else {
+                showToast('Erreur lors de la synchronisation des messages', 'exclamation-circle', false);
+            }
+            
+            // Retirer la classe spinning après 1 seconde
+            setTimeout(() => {
+                if (icon) icon.classList.remove('spinning');
+            }, 1000);
+        });
+        
+        // Ajouter le bouton après l'input du chat
+        const chatInput = chatWidget.querySelector('.chat-input');
+        if (chatInput) {
+            chatInput.after(syncButton);
+        }
+    }
+    
     // Démarrer le rafraîchissement automatique
     function startAutoRefresh() {
         // Charger les données immédiatement
         loadServerStatus();
         loadPlayers();
         updateOnlineUsersList();
+        refreshChatMessages();
         
         lastRefreshTime = Date.now();
         lastPlayersRefreshTime = Date.now();
         lastUsersRefreshTime = Date.now();
+        lastChatRefreshTime = Date.now();
         
         // Démarrer les timers de rafraîchissement
         refreshTimer = setInterval(updateRefreshTimer, 1000);
         playersRefreshTimer = setInterval(updatePlayersRefreshTimer, 1000);
         usersRefreshTimer = setInterval(updateUsersRefreshTimer, 1000);
+        chatRefreshTimer = setInterval(updateChatRefreshTimer, 1000);
         
-        // Ajouter un message Discord dans le chat local
+        // Ajouter un message de bienvenue
         addChatMessage({
             sender: 'server',
-            message: `Pour voir tous les messages en temps réel, basculez vers l'onglet Discord. <i class="fab fa-discord" style="color: var(--discord);"></i>`
+            message: `Bienvenue sur le chat du serveur BTSSIO Craft ! Les messages sont synchronisés entre le site web, Discord et Minecraft.`
         });
+        
+        // Ajouter le bouton de synchronisation
+        addSyncChatButton();
     }
     
     // Initialiser l'application
@@ -1067,24 +1383,29 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(refreshTimer);
             clearInterval(playersRefreshTimer);
             clearInterval(usersRefreshTimer);
+            clearInterval(chatRefreshTimer);
         } else {
             // Reprendre le rafraîchissement automatique
             clearInterval(refreshTimer);
             clearInterval(playersRefreshTimer);
             clearInterval(usersRefreshTimer);
+            clearInterval(chatRefreshTimer);
             
             refreshTimer = setInterval(updateRefreshTimer, 1000);
             playersRefreshTimer = setInterval(updatePlayersRefreshTimer, 1000);
             usersRefreshTimer = setInterval(updateUsersRefreshTimer, 1000);
+            chatRefreshTimer = setInterval(updateChatRefreshTimer, 1000);
             
             // Rafraîchir immédiatement les données
             loadServerStatus();
             loadPlayers();
             updateOnlineUsersList();
+            refreshChatMessages();
             
             lastRefreshTime = Date.now();
             lastPlayersRefreshTime = Date.now();
             lastUsersRefreshTime = Date.now();
+            lastChatRefreshTime = Date.now();
             
             // Mettre à jour l'activité de l'utilisateur
             if (currentUser) {

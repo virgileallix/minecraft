@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <!-- Header -->
     <header class="site-header">
@@ -18,18 +20,18 @@
                 </div>
                 <h1 class="site-name">BTSSIO Craft</h1>
             </div>
-            
+
             <div class="header-stats">
                 <div class="online-counter">
                     <i class="fas fa-users"></i>
                     <span>Joueurs en ligne: <span id="online-count">...</span></span>
                 </div>
-                
+
                 <div class="server-address" id="copy-address">
                     <span class="address-text">btssio.craft.gg</span>
                     <span class="copy-icon"><i class="fas fa-copy"></i></span>
                 </div>
-                
+
                 <div class="auth-buttons">
                     <button class="mc-button" id="login-button">
                         <i class="fas fa-sign-in-alt"></i> Connexion
@@ -45,12 +47,13 @@
             </div>
         </div>
     </header>
-    
+
     <!-- Bannière du serveur -->
     <div class="container server-banner-container">
-        <img src="https://panel.omgserv.com/banner/447820" alt="BTSSIO Craft - Bannière du serveur" class="server-banner">
+        <img src="https://panel.omgserv.com/banner/447820" alt="BTSSIO Craft - Bannière du serveur"
+            class="server-banner">
     </div>
-    
+
     <!-- Main Content -->
     <div class="container">
         <div class="main-content">
@@ -66,7 +69,7 @@
                         <div class="refresh-timer" id="refresh-timer">10</div>
                     </div>
                 </div>
-                
+
                 <div class="mc-card-content">
                     <ul class="status-list" id="server-status">
                         <li class="status-item">
@@ -102,7 +105,7 @@
                             </div>
                         </li>
                     </ul>
-                    
+
                     <div class="refresh-timer-container">
                         Rafraîchissement automatique dans <span id="refresh-timer-status">10</span> secondes
                         <div id="refresh-progress-container">
@@ -111,7 +114,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Players Card -->
             <div class="mc-card">
                 <div class="mc-card-header">
@@ -124,7 +127,7 @@
                         <div class="refresh-timer" id="refresh-player-timer">10</div>
                     </div>
                 </div>
-                
+
                 <div class="mc-card-content">
                     <ul class="player-list" id="player-list">
                         <li class="player-item loading">
@@ -137,7 +140,7 @@
                             </div>
                         </li>
                     </ul>
-                    
+
                     <div class="refresh-timer-container">
                         Rafraîchissement automatique dans <span id="refresh-player-timer-status">10</span> secondes
                         <div id="refresh-player-progress-container">
@@ -147,7 +150,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Second Row -->
         <div class="main-content">
             <!-- Server Timeline -->
@@ -158,14 +161,14 @@
                     </div>
                     <h2 class="mc-card-title">Événements récents</h2>
                 </div>
-                
+
                 <div class="mc-card-content">
                     <div class="timeline">
                         <!-- Les événements seront générés automatiquement -->
                     </div>
                 </div>
             </div>
-            
+
             <!-- Server Chat (Updated) -->
             <div class="mc-card">
                 <div class="mc-card-header">
@@ -174,15 +177,15 @@
                     </div>
                     <h2 class="mc-card-title">Chat du serveur</h2>
                 </div>
-                
+
                 <div class="mc-card-content">
                     <div class="chat-widget">
-                        <!-- Onglets du chat -->
                         <div class="chat-tabs">
                             <button class="chat-tab active" data-tab="local">Chat Local</button>
+                            <button class="chat-tab" data-tab="minecraft">Minecraft</button>
                             <button class="chat-tab" data-tab="discord">Discord</button>
                         </div>
-                        
+
                         <div class="chat-containers">
                             <!-- Chat messages local -->
                             <div class="chat-messages" id="chat-messages">
@@ -192,20 +195,25 @@
                                 <div class="chat-message server">
                                     <strong>Serveur:</strong> Connectez-vous pour participer à la discussion.
                                 </div>
+                                <div class="chat-message server">
+                                    <strong>Serveur:</strong> Les messages sont synchronisés avec Discord et Minecraft.
+                                </div>
                             </div>
-                            
-                            <!-- Intégration Discord -->
-                            <div class="discord-container" style="display: none;">
-                                <iframe src="https://discord.com/widget?id=1361440270448722020&theme=dark" 
-                                        width="100%" 
-                                        height="100%" 
-                                        allowtransparency="true" 
-                                        frameborder="0"
-                                        sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts">
-                                </iframe>
+
+                            <!-- Chat messages Minecraft -->
+                            <div class="chat-messages minecraft-messages" id="minecraft-messages" style="display: none;">
+                                <div class="chat-message server">
+                                    <strong>Serveur Minecraft:</strong> Chargement des messages...
+                                </div>
+                            </div>
+
+                            <!-- Discord iframe -->
+                            <div class="discord-container" id="discord-container" style="display: none;">
+                                <iframe src="https://discord.com/widget?id=1361440270448722020&theme=dark" width="100%" height="100%" 
+                                    allowtransparency="true" frameborder="0"></iframe>
                             </div>
                         </div>
-                        
+
                         <div class="chat-input">
                             <input type="text" id="chat-input-field" placeholder="Connectez-vous pour envoyer un message..." disabled>
                             <button class="send-button" id="send-button" disabled><i class="fas fa-paper-plane"></i></button>
@@ -214,8 +222,8 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Liste des utilisateurs connectés au site -->
+
+        <!-- Utilisateurs en ligne -->
         <div class="main-content">
             <div class="mc-card">
                 <div class="mc-card-header">
@@ -228,7 +236,7 @@
                         <div class="refresh-timer" id="refresh-users-timer">10</div>
                     </div>
                 </div>
-                
+
                 <div class="mc-card-content">
                     <ul class="user-list" id="online-users-list">
                         <li class="user-item">
@@ -241,7 +249,7 @@
                             </div>
                         </li>
                     </ul>
-                    
+
                     <div class="refresh-timer-container">
                         Rafraîchissement automatique dans <span id="refresh-users-timer-status">10</span> secondes
                         <div id="refresh-users-progress-container">
@@ -252,7 +260,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Login Modal -->
     <div class="modal" id="login-modal">
         <div class="modal-content">
@@ -266,7 +274,7 @@
                     <button class="tab-button active" data-tab="login">Connexion</button>
                     <button class="tab-button" data-tab="register">Inscription</button>
                 </div>
-                
+
                 <!-- Login Form -->
                 <div class="tab-content active" id="login-tab">
                     <form id="login-form" class="auth-form">
@@ -283,7 +291,7 @@
                         </div>
                     </form>
                 </div>
-                
+
                 <!-- Register Form -->
                 <div class="tab-content" id="register-tab">
                     <form id="register-form" class="auth-form">
@@ -307,7 +315,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Footer -->
     <footer class="site-footer">
         <div class="container">
@@ -315,13 +323,14 @@
             <p>Mise à jour en temps réel toutes les 10 secondes</p>
         </div>
     </footer>
-    
+
     <!-- Toast Notification -->
     <div class="toast" id="toast">
         <span class="toast-icon"><i class="fas fa-check-circle"></i></span>
         <span class="toast-message">Adresse du serveur copiée !</span>
     </div>
-    
+
     <script src="script.js"></script>
 </body>
+
 </html>
