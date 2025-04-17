@@ -177,12 +177,32 @@
                 
                 <div class="mc-card-content">
                     <div class="chat-widget">
-                        <div class="chat-messages" id="chat-messages">
-                            <div class="chat-message server">
-                                <strong>Serveur:</strong> Bienvenue dans le chat du serveur!
+                        <!-- Onglets du chat -->
+                        <div class="chat-tabs">
+                            <button class="chat-tab active" data-tab="local">Chat Local</button>
+                            <button class="chat-tab" data-tab="discord">Discord</button>
+                        </div>
+                        
+                        <div class="chat-containers">
+                            <!-- Chat messages local -->
+                            <div class="chat-messages" id="chat-messages">
+                                <div class="chat-message server">
+                                    <strong>Serveur:</strong> Bienvenue dans le chat du serveur!
+                                </div>
+                                <div class="chat-message server">
+                                    <strong>Serveur:</strong> Connectez-vous pour participer à la discussion.
+                                </div>
                             </div>
-                            <div class="chat-message server">
-                                <strong>Serveur:</strong> Connectez-vous pour participer à la discussion.
+                            
+                            <!-- Intégration Discord -->
+                            <div class="discord-container" style="display: none;">
+                                <iframe src="https://discord.com/widget?id=1361440270448722020&theme=dark" 
+                                        width="100%" 
+                                        height="100%" 
+                                        allowtransparency="true" 
+                                        frameborder="0"
+                                        sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts">
+                                </iframe>
                             </div>
                         </div>
                         

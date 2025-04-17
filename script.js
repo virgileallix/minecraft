@@ -1,4 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Configuration Discord
+    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1362399809537048627/Are9RBBOYaThb-Ks4S3hwq9HtqpciIRAxVh7BmJwMh6wbCQ75kSlrhiujv7vRvd_NxSb';// À remplacer par l'URL de votre webhook
+    const DISCORD_SERVER_ID = '1361440270448722020'; // ID de votre serveur Discord
+    const DISCORD_CHANNEL_ID = '1361432323006009375'; // ID du canal global
+    
     // Éléments DOM
     const playerList = document.getElementById('player-list');
     const serverStatus = document.getElementById('server-status');
@@ -37,6 +42,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatMessages = document.getElementById('chat-messages');
     const chatInputField = document.getElementById('chat-input-field');
     const sendButton = document.getElementById('send-button');
+    
+    // Éléments DOM pour les onglets du chat
+    const chatTabs = document.querySelectorAll('.chat-tab');
+    const discordContainer = document.querySelector('.discord-container');
     
     // URLs des APIs
     const playersApiUrl = 'https://panel.omgserv.com/json/447820/players';
@@ -248,38 +257,94 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
+    // Fonction pour envoyer un message webhook Discord
+    async function sendDiscordWebhookMessage(message, username) {
+        if (!message || !message.trim()) {
+            return false;
+        }
+        
+        try {
+            const response = await fetch(DISCORD_WEBHOOK_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: message,
+                    username: username ? `${username} (Site Web)` : 'Site Web BTSSIO Craft',
+                    avatar_url: username ? `https://mc-heads.net/avatar/${username}/64` : ''
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Erreur lors de l\'envoi du message webhook:', error);
+            return false;
+        }
+    }
+    
     // Gérer l'envoi de messages
     function handleSendMessage() {
         if (!currentUser || !chatInputField.value.trim()) return;
         
         const message = chatInputField.value.trim();
         
-        // Ajouter le message au chat
+        // Vérifier si c'est un message privé
+        let target = null;
+        let cleanMessage = message;
+        
+        if (message.startsWith('@')) {
+            const firstSpace = message.indexOf(' ');
+            if (firstSpace > 0) {
+                target = message.substring(1, firstSpace);
+                cleanMessage = message.substring(firstSpace + 1);
+            }
+        }
+        
+        // Ajouter le message au chat local
         addChatMessage({
             sender: currentUser.username,
             message: message
         });
         
+        // Envoyer le message à Discord via le webhook
+        sendDiscordWebhookMessage(message, currentUser.username)
+            .then(success => {
+                if (!success) {
+                    console.warn('Échec de l\'envoi du message à Discord. Retour au comportement local.');
+                    simulateMessageResponse(message, target);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'envoi du message:', error);
+                // Fallback au comportement local
+                simulateMessageResponse(message, target);
+            });
+        
         // Mettre à jour l'activité de l'utilisateur
         updateUserLastActivity(currentUser.id);
         
+        // Effacer le champ de saisie
+        chatInputField.value = '';
+    }
+    
+    // Simuler une réponse (pour le comportement local)
+    function simulateMessageResponse(message, target) {
         // Vérifier si c'est un message privé
-        if (message.startsWith('@')) {
-            const recipientUsername = message.split(' ')[0].substring(1);
-            const onlineUsers = getOnlineUsers();
-            const recipient = onlineUsers.find(u => u.username.toLowerCase() === recipientUsername.toLowerCase());
-            
-            if (recipient) {
-                // Simuler une réponse privée
-                setTimeout(() => {
-                    addChatMessage({
-                        sender: recipientUsername,
-                        message: `@${currentUser.username} Salut ! J'ai bien reçu ton message privé.`
-                    });
-                }, 1000 + Math.random() * 2000);
-            }
+        if (target) {
+            // Simuler une réponse privée
+            setTimeout(() => {
+                addChatMessage({
+                    sender: target,
+                    message: `@${currentUser.username} Salut ! J'ai bien reçu ton message privé.`
+                });
+            }, 1000 + Math.random() * 2000);
         } else {
-            // Simuler une réponse du serveur (pour démo)
+            // Simuler une réponse du serveur
             setTimeout(() => {
                 const responses = [
                     "Merci pour ton message !",
@@ -297,9 +362,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }, 1000 + Math.random() * 2000);
         }
+    }
+    
+    // Initialiser les onglets du chat
+    function initChatTabs() {
+        if (!chatTabs.length || !chatMessages || !discordContainer) return;
         
-        // Effacer le champ de saisie
-        chatInputField.value = '';
+        chatTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Désactiver tous les onglets
+                chatTabs.forEach(t => t.classList.remove('active'));
+                
+                // Activer l'onglet cliqué
+                this.classList.add('active');
+                
+                // Afficher le contenu correspondant
+                const tabType = this.getAttribute('data-tab');
+                
+                if (tabType === 'local') {
+                    chatMessages.style.display = 'flex';
+                    discordContainer.style.display = 'none';
+                } else if (tabType === 'discord') {
+                    chatMessages.style.display = 'none';
+                    discordContainer.style.display = 'block';
+                }
+            });
+        });
     }
     
     // Fonctions de récupération des données
@@ -958,12 +1046,19 @@ document.addEventListener('DOMContentLoaded', function() {
         refreshTimer = setInterval(updateRefreshTimer, 1000);
         playersRefreshTimer = setInterval(updatePlayersRefreshTimer, 1000);
         usersRefreshTimer = setInterval(updateUsersRefreshTimer, 1000);
+        
+        // Ajouter un message Discord dans le chat local
+        addChatMessage({
+            sender: 'server',
+            message: `Pour voir tous les messages en temps réel, basculez vers l'onglet Discord. <i class="fab fa-discord" style="color: var(--discord);"></i>`
+        });
     }
     
     // Initialiser l'application
     startAutoRefresh();
     setupHeartbeat();
     checkLoggedInUser();
+    initChatTabs();
     
     // Vérifier si le document est visible et ajuster le rafraîchissement
     document.addEventListener('visibilitychange', function() {
