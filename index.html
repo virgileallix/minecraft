@@ -10,7 +10,6 @@
 </head>
 
 <body>
-    <!-- Header -->
     <header class="site-header">
         <div class="container header-content">
             <div class="site-title">
@@ -48,16 +47,13 @@
         </div>
     </header>
 
-    <!-- Bannière du serveur -->
     <div class="container server-banner-container">
         <img src="https://panel.omgserv.com/banner/447820" alt="BTSSIO Craft - Bannière du serveur"
             class="server-banner">
     </div>
 
-    <!-- Main Content -->
     <div class="container">
         <div class="main-content">
-            <!-- Server Status Card -->
             <div class="mc-card">
                 <div class="mc-card-header">
                     <div class="mc-card-icon">
@@ -114,8 +110,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Players Card -->
             <div class="mc-card">
                 <div class="mc-card-header">
                     <div class="mc-card-icon">
@@ -150,10 +144,7 @@
                 </div>
             </div>
         </div>
-
-        <!-- Second Row -->
         <div class="main-content">
-            <!-- Server Timeline -->
             <div class="mc-card">
                 <div class="mc-card-header">
                     <div class="mc-card-icon">
@@ -164,12 +155,9 @@
 
                 <div class="mc-card-content">
                     <div class="timeline">
-                        <!-- Les événements seront générés automatiquement -->
                     </div>
                 </div>
             </div>
-
-            <!-- Server Chat (Updated) -->
             <div class="mc-card">
                 <div class="mc-card-header">
                     <div class="mc-card-icon">
@@ -187,7 +175,6 @@
                         </div>
 
                         <div class="chat-containers">
-                            <!-- Chat messages local -->
                             <div class="chat-messages" id="chat-messages">
                                 <div class="chat-message server">
                                     <strong>Serveur:</strong> Bienvenue dans le chat du serveur!
@@ -199,15 +186,11 @@
                                     <strong>Serveur:</strong> Les messages sont synchronisés avec Discord et Minecraft.
                                 </div>
                             </div>
-
-                            <!-- Chat messages Minecraft -->
                             <div class="chat-messages minecraft-messages" id="minecraft-messages" style="display: none;">
                                 <div class="chat-message server">
                                     <strong>Serveur Minecraft:</strong> Chargement des messages...
                                 </div>
                             </div>
-
-                            <!-- Discord iframe -->
                             <div class="discord-container" id="discord-container" style="display: none;">
                                 <iframe src="https://discord.com/widget?id=1361440270448722020&theme=dark" width="100%" height="100%" 
                                     allowtransparency="true" frameborder="0"></iframe>
@@ -222,8 +205,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Utilisateurs en ligne -->
         <div class="main-content">
             <div class="mc-card">
                 <div class="mc-card-header">
@@ -261,7 +242,6 @@
         </div>
     </div>
 
-    <!-- Login Modal -->
     <div class="modal" id="login-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -269,13 +249,10 @@
                 <span class="modal-close" id="close-modal">&times;</span>
             </div>
             <div class="modal-body">
-                <!-- Tab Navigation -->
                 <div class="tab-navigation">
                     <button class="tab-button active" data-tab="login">Connexion</button>
                     <button class="tab-button" data-tab="register">Inscription</button>
                 </div>
-
-                <!-- Login Form -->
                 <div class="tab-content active" id="login-tab">
                     <form id="login-form" class="auth-form">
                         <div class="form-group">
@@ -291,8 +268,6 @@
                         </div>
                     </form>
                 </div>
-
-                <!-- Register Form -->
                 <div class="tab-content" id="register-tab">
                     <form id="register-form" class="auth-form">
                         <div class="form-group">
@@ -315,16 +290,12 @@
             </div>
         </div>
     </div>
-
-    <!-- Footer -->
     <footer class="site-footer">
         <div class="container">
             <p>© 2025 BTSSIO Craft - Serveur Minecraft vanilla 1.21.5 entre amis</p>
             <p>Mise à jour en temps réel toutes les 10 secondes</p>
         </div>
     </footer>
-
-    <!-- Toast Notification -->
     <div class="toast" id="toast">
         <span class="toast-icon"><i class="fas fa-check-circle"></i></span>
         <span class="toast-message">Adresse du serveur copiée !</span>
